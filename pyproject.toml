@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "template"
+version = "0.1.0"
+description = ""
+authors = ["Tomas Sanchez <info@tomsanchez.com.ar>"]
+readme = "README.md"
+packages = [{ include = "template", from = "src" }]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
