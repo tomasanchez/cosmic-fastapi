@@ -12,6 +12,78 @@ fastapi = "^0.101.0"
 uvicorn = "^0.23.2"
 
 
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.0"
+coverage = { extras = ["toml"], version = "^7.2.7" }
+pre-commit = "^3.3.3"
+black = "^23.7.0"
+pylint = "^2.17.5"
+isort = "^5.12.0"
+mypy = "^1.4.1"
+flake8 = "^6.1.0"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 120
+target-version = ['py310']
+include = '\.pyi?$'
+
+[tool.coverage.run]
+branch = true
+omit = ['*/tests*']
+
+[tool.coverage.report]
+show_missing = true
+ignore_errors = true
+exclude_lines = ["pragma: no cover", "raise NotImplementedError", "if TYPE_CHECKING:", "if __name__ == .__main__.:"]
+
+[tool.isort]
+known_first_party = "template"
+line_length = 120
+multi_line_output = 3
+use_parentheses = true
+include_trailing_comma = true
+ensure_newline_before_comments = true
+force_grid_wrap = 0
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[tool.pylint.basic]
+max-line-length = 120
+argument-rgx = "[a-z_][a-z0-9_]{0,30}$"
+function-rgx = "[a-z_][a-z0-9_]*$"
+variable-rgx = "[a-z_][a-z0-9_]{0,30}$"
+good-names = ["logger", "i", "j", "k", "ex", "Run", "T"]
+bad-names = ["l", "I", "O"]
+ignore-patterns = "test_.*?py"
+
+[tool.pylint.logging]
+logging-modules = "logging"
+
+[tool.pylint.messages_control]
+disable = [
+    "fixme",
+    "no-member",
+    "unused-argument",
+    "too-few-public-methods",
+    "duplicate-code",
+    "no-name-in-module",
+    "no-self-argument",
+    "missing-class-docstring",
+]
+
+[tool.pylint.reports]
+reports = false
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = "tests"
+python_files = "test_*.py"
+junit_family = "xunit1"
+log_cli = false
+log_level = "DEBUG"
+adopts = "-p no:logging"
