@@ -8,6 +8,7 @@ packages = [{ include = "template", from = "src" }]
 
 [tool.poetry.dependencies]
 python = "^3.10"
+fastapi = "^0.101.0"
 
 
 [build-system]
