@@ -1,7 +1,7 @@
 """
 API Settings
 """
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, HttpUrl
 from pydantic_settings import BaseSettings
 
 from template.version import __version__
@@ -16,7 +16,7 @@ class LicenseInfo(BaseModel):
     """
 
     name: str
-    url: str
+    url: HttpUrl
 
 
 class ContactInfo(BaseModel):
@@ -29,8 +29,8 @@ class ContactInfo(BaseModel):
     """
 
     name: str
-    url: str
-    email: str
+    url: HttpUrl
+    email: EmailStr
 
 
 class ApplicationSettings(BaseSettings):
@@ -63,8 +63,8 @@ class ApplicationSettings(BaseSettings):
     DEBUG: bool = True
     PROJECT_NAME: str = "Cosmic FastAPI Template"
     PROJECT_DESCRIPTION: str = "This is a FastAPI template demo."
-    PROJECT_LICENSE: LicenseInfo = LicenseInfo(name="MIT", url="https://mit-license.org/")
-    PROJECT_CONTACT: ContactInfo = ContactInfo(
+    PROJECT_LICENSE: LicenseInfo | None = LicenseInfo(name="MIT", url="https://mit-license.org/")
+    PROJECT_CONTACT: ContactInfo | None = ContactInfo(
         name="Tom Sanchez", url="https://tomsanchez.com.ar", email="info@tomsanchez.com.ar"
     )
     VERSION: str = __version__
