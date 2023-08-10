@@ -17,3 +17,14 @@ class LivenessProbed(CamelCaseModel):
         description="The status of the application.",
         default="Ok",
     )
+
+
+class ReadinessProbed(CamelCaseModel):
+    """
+    Event that is sent when the application is probed for readiness.
+    """
+
+    status: Literal["Ready", "Error"] = Field(
+        description="The readiness probe of the application.",
+        default="Ready",
+    )
