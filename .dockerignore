@@ -1,0 +1,9 @@
+/tests
+.flake8
+.tox
+.coverage
+.pre-commit-config.yaml
+LICENSE
+mypy.ini
+.mypy_cache
+.pytest_cache
