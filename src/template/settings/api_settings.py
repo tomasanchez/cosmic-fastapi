@@ -2,7 +2,7 @@
 API Settings
 """
 from pydantic import BaseModel, EmailStr, HttpUrl
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from template.version import __version__
 
@@ -58,6 +58,9 @@ class ApplicationSettings(BaseSettings):
         PROJECT_CONTACT (ContactInfo): FastAPI project contact details.
         VERSION (str): Application version.
         DOCS_URL (str): Path where swagger ui will be served at.
+
+    Resources:
+        1. https://docs.pydantic.dev/latest/usage/pydantic_settings/
     """
 
     DEBUG: bool = True
@@ -73,15 +76,7 @@ class ApplicationSettings(BaseSettings):
     # All your additional application configuration should go either here or in
     # separate file in this submodule.
 
-    class Config:
-        """Config subclass needed to customize BaseSettings settings.
-        Attributes:
-            case_sensitive (bool): When case_sensitive is True, the environment
-                variable names must match field names (optionally with a prefix)
-            env_prefix (str): The prefix for environment variable.
-        Resources:
-            https://pydantic-docs.helpmanual.io/usage/settings/
-        """
-
-        case_sensitive = True
-        env_prefix = "FASTAPI_"
+    model_config = SettingsConfigDict(
+        case_sensitive=True,
+        env_prefix="FASTAPI_",
+    )

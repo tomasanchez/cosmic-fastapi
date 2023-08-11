@@ -12,4 +12,14 @@ if __name__ == "__main__":
     # pylint: disable=wrong-import-position
     import uvicorn
 
-    uvicorn.run("template.main:app", host="0.0.0.0")
+    import template.settings.uvicorn_settings
+
+    settings = template.UvicornSettings()
+
+    uvicorn.run(
+        "template.main:app",
+        host=settings.HOST,
+        port=settings.PORT,
+        log_level=settings.LOG_LEVEL,
+        reload=settings.RELOAD,
+    )
