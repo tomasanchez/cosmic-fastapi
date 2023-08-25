@@ -9,7 +9,21 @@ the [Cosmic Python](https://www.cosmicpython.com/) guidelines.
 
 * [Cosmic FastAPI](#cosmic-fastapi)
     * [Content](#content)
-    * [Features](#features)
+    * [About](#about)
+        * [Features](#features)
+        * [Project Structure](#project-structure)
+            * [Environment Variables](#environment-variables)
+        * [Recommended Directory Structure](#recommended-directory-structure)
+        * [Domain Driven Design](#domain-driven-design)
+            * [Models](#models)
+                * [Entities](#entities)
+                * [Value Objects](#value-objects)
+                * [Aggregates:](#aggregates)
+            * [Schemas](#schemas)
+            * [Event Driven Architecture](#event-driven-architecture)
+                * [Commands](#commands)
+                * [Events](#events)
+            * [Clean Architecture](#clean-architecture)
     * [Continuous Integration](#continuous-integration)
     * [Development Environment](#development-environment)
         * [Installing Poetry](#installing-poetry)
@@ -108,6 +122,123 @@ useful hints about what kinds of object we’ll find in each file. We can use th
 
 We may even consider splitting our models, schemas, events and commands into separate packages and files if they get too
 big.
+
+### Domain Driven Design
+
+`Commands`, `Events`, `Schemas` and `Models` are the building blocks of our **Domain**.
+
+#### Models
+
+First, we define our domain models. These are the objects that represent the business concepts we’re working with.
+They should be as simple as possible, and contain only the attributes that are essential to the business, utilizing the
+business jargon. The idea is that, if you were to show these models to a non-technical person, but someone who
+understand the business process, they would be able to understand what the application does. Models encapsulate the
+behavior, state, and business rules that govern the application. Models can encompass entities, aggregates, and
+sometimes even Value Objects.
+
+##### Entities
+
+Entities are objects that have distinct identities that run throughout their lifecycle. In other words, an entity is
+defined not just by its attributes, but also by a unique identifier that differentiates it from other entities of the
+same type. Entities are mutable and can have their attributes modified while maintaining the same identity. They are
+often used to represent real-world objects or concepts that have an ongoing existence.
+
+For example, in an e-commerce system, a "Product" can be an entity. Each product has a unique identifier, and its
+attributes (such as name, description, price) can change without changing its identity.
+
+##### Value Objects
+
+A Value Object is a concept from Domain-Driven Design (DDD). It's an object that represents a descriptive aspect of the
+domain with no conceptual identity. In other words, a `Value Object` is defined solely by its attributes, and two Value
+Objects with the same attributes are considered equal. They are immutable and can be thought of as "flyweight" objects
+that are shared whenever their values are the same.
+
+Value Objects can be part of a `Model`. In fact, they often enhance the expressiveness and maintainability of Models.
+Value Objects help to define attributes with semantic meaning and encapsulate their validation and behavior. In some
+cases, a Model might consist of one or more entities and Value Objects that work together to represent and manage the
+business logic and data.
+
+##### Aggregates:
+
+Aggregates are clusters of related `entities` and `value objects` that are treated as a single unit. The aggregate is
+the boundary within which changes are managed and consistency is maintained. One entity within the aggregate is
+designated as the "aggregate root."
+All interactions with the aggregate are done through this root entity. This helps ensure that the integrity and
+consistency of the data is maintained within the aggregate.
+
+For example, in the case of an e-commerce system, a "Shopping Cart" could be an aggregate. The shopping cart would be
+composed of multiple line items (entities representing products in the cart) and possibly other related information. All
+changes to the items in the cart would be managed through the shopping cart aggregate root.
+
+Entities can be part of an aggregate, and an aggregate often includes one or more entities and possibly value objects.
+Aggregates define the transactional boundaries and consistency rules within the domain. They encapsulate business rules
+and enforce invariants to ensure that the data remains in a valid and consistent state.
+
+#### Schemas
+
+Schemas are used to define the structure and validation rules for the input and output data of your API. Schemas help
+ensure that data is correctly formatted and adheres to specific criteria before being processed. They are often used to
+validate request payloads and to define the shape of the data returned from API endpoints.
+
+In this project we use `Pydantic` to define our schemas. [Pydantic](https://pydantic-docs.helpmanual.io/) is a library
+that provides runtime checking and validation.
+
+#### Event Driven Architecture
+
+`Commands` and `Events` are the building blocks of our **Event Driven Architecture**. You can consider both as simple
+dataclasses, as they have no behaviour.
+
+Both commands and events are often used in software architectures to promote separation of concerns, modularity, and
+extensibility. By encapsulating actions or occurrences into discrete objects, it becomes easier to reason about the
+system and make changes without impacting other parts of the codebase.
+
+In an API, we can use `commands` to represent requests from clients to perform certain actions. These commands may need
+to be validated before they can be processed. Once validated, they can be executed by an appropriate handler or service.
+Following this idea, we can use `events` to represent our API responses. For this, we can associate both as kind
+of `schemas`.
+
+##### Commands
+
+Commands represent actions or requests to be performed by a system. They typically encapsulate a specific intent or
+operation that needs to be executed. In software development, commands are often used in conjunction with a command
+pattern or a similar architectural pattern to decouple the sender of the command from its execution.
+
+For example, in a web application, a command might be used to represent a user's request to update their profile
+information. The command object would contain the necessary data to carry out the update operation, and it would be
+executed by an appropriate handler or service.
+
+##### Events
+
+Events represent notifications or signals that something has happened within a system. They convey information about a
+specific occurrence and are often used for communication between different components or modules of an application.
+Events are typically used in event-driven architectures or publish-subscribe patterns.
+
+When an event occurs, it can be published to an event bus or a similar mechanism. Other components that have subscribed
+to that event can receive and react to it accordingly. This allows for loose coupling and enables different parts of the
+system to respond to events without direct dependencies on each other.
+
+For example, in an e-commerce application, an event might be triggered when a new order is placed. Subscribed
+components, such as inventory management or shipping modules, can then react to this event by updating their respective
+states or initiating further actions.
+
+### Clean Architecture
+
+The main idea behind Clean Architecture is to create a separation of concerns in software systems, allowing for easier
+maintenance, testing, and scalability. The core principle of Clean Architecture is the dependency rule, which states
+that dependencies should always point inward towards the core of the application and not outward towards external
+frameworks or tools. This helps keep the core of the application independent and flexible.
+
+Clean Architecture typically consists of several layers, each with a specific responsibility:
+
+* Entities: These are the core business objects and rules.
+* Use Cases (Interacts): These encapsulate the business logic and orchestrate interactions between entities.
+* Interfaces (Gateways): These define the interfaces that allow the use cases to interact with external data sources or
+  systems.
+* Frameworks and Drivers: These are the outermost layers that deal with the infrastructure, such as databases, web
+  frameworks, UI, etc.
+
+In our project, we can easily observe the different layers according to our directory structure. It's an architecture
+that "screams": by its naming conventions, we can easily understand what is the responsibility of each module.
 
 ## Continuous Integration
 
