@@ -8,10 +8,10 @@ packages = [{ include = "template", from = "src" }]
 
 [tool.poetry.dependencies]
 python = "^3.10"
-fastapi = "^0.101.0"
-uvicorn = "^0.23.2"
-pydantic-settings = "^2.0.2"
-pydantic = { extras = ["email"], version = "^2.1.1" }
+fastapi = "0.111.0"
+uvicorn = "0.29.0"
+pydantic-settings = "2.2.1"
+pydantic = { extras = ["email"], version = "2.7.1" }
 
 
 [tool.poetry.group.dev.dependencies]
