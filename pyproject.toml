@@ -1,39 +1,84 @@
-[tool.poetry]
+[project]
 name = "template"
-version = "0.1.0"
+version = "1.0.0"
 description = ""
-authors = ["Tomas Sanchez <info@tomsanchez.com.ar>"]
+authors = [{ name = "Tomas Sanchez", email = "info@tomsanchez.com.ar" }]
 readme = "README.md"
-packages = [{ include = "template", from = "src" }]
+requires-python = ">=3.10,<4.0"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn>=0.34.0",
+    "pydantic-settings>=2.9.0",
+    "pydantic[email]>=2.11.0",
+]
 
-[tool.poetry.dependencies]
-python = "^3.10"
-fastapi = "^0.101.0"
-uvicorn = "^0.23.2"
-pydantic-settings = "^2.0.2"
-pydantic = { extras = ["email"], version = "^2.1.1" }
-
-
-[tool.poetry.group.dev.dependencies]
-pytest = "^7.4.0"
-coverage = { extras = ["toml"], version = "^7.2.7" }
-pre-commit = "^3.3.3"
-black = "^23.7.0"
-pylint = "^2.17.5"
-isort = "^5.12.0"
-mypy = "^1.4.1"
-flake8 = "^6.1.0"
-httpx = "^0.24.1"
-pytest-cov = "^4.1.0"
+[dependency-groups]
+dev = [
+    "pytest>=8.4.0",
+    "coverage[toml]>=7.9.0",
+    "pre-commit>=4.2.0",
+    "httpx>=0.28.0",
+    "pytest-cov>=6.2.0",
+    "ruff",
+]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.black]
+[tool.ruff]
 line-length = 120
-target-version = ['py310']
-include = '\.pyi?$'
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    # flake8-2020
+    "YTT",
+    # flake8-bandit
+    "S",
+    # flake8-bugbear
+    "B",
+    # flake8-builtins
+    "A",
+    # flake8-comprehensions
+    "C4",
+    # flake8-debugger
+    "T10",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+    # mccabe
+    "C90",
+    # pycodestyle
+    "E", "W",
+    # pyflakes
+    "F",
+    # pygrep-hooks
+    "PGH",
+    # pyupgrade
+    "UP",
+    # ruff
+    "RUF",
+    # tryceratops
+    "TRY",
+]
+# Some pydocstyle rules are disabled because they are often too verbose.
+ignore = [
+    "D100",
+    "D104",
+    "D107",
+    # LineTooLong
+    "E501",
+    # DoNotAssignLambda
+    "E731",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["template"]
 
 [tool.coverage.run]
 branch = true
@@ -44,48 +89,10 @@ show_missing = true
 ignore_errors = true
 exclude_lines = ["pragma: no cover", "raise NotImplementedError", "if TYPE_CHECKING:", "if __name__ == .__main__.:"]
 
-[tool.isort]
-known_first_party = "template"
-line_length = 120
-multi_line_output = 3
-use_parentheses = true
-include_trailing_comma = true
-ensure_newline_before_comments = true
-force_grid_wrap = 0
-
-[tool.mypy]
-ignore_missing_imports = true
-
-[tool.pylint.basic]
-max-line-length = 120
-argument-rgx = "[a-z_][a-z0-9_]{0,30}$"
-function-rgx = "[a-z_][a-z0-9_]*$"
-variable-rgx = "[a-z_][a-z0-9_]{0,30}$"
-good-names = ["logger", "i", "j", "k", "ex", "Run", "T"]
-bad-names = ["l", "I", "O"]
-ignore-patterns = "test_.*?py"
-
-[tool.pylint.logging]
-logging-modules = "logging"
-
-[tool.pylint.messages_control]
-disable = [
-    "fixme",
-    "no-member",
-    "unused-argument",
-    "too-few-public-methods",
-    "duplicate-code",
-    "no-name-in-module",
-    "no-self-argument",
-    "missing-class-docstring",
-]
-
-[tool.pylint.reports]
-reports = false
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
-testpaths = "tests"
+testpaths = ["tests"]
 python_files = "test_*.py"
 junit_family = "xunit1"
 log_cli = false

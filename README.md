@@ -23,7 +23,7 @@ the [Cosmic Python](https://www.cosmicpython.com/) guidelines.
             * [Event Driven Architecture](#event-driven-architecture)
                 * [Commands](#commands)
                 * [Events](#events)
-            * [Clean Architecture](#clean-architecture)
+        * [Clean Architecture](#clean-architecture)
     * [Continuous Integration](#continuous-integration)
     * [Development Environment](#development-environment)
         * [Installing Poetry](#installing-poetry)
@@ -248,16 +248,16 @@ Run `make help` to see all available commands.
 
 ## Development Environment
 
-### Installing Poetry
+### Installing UV
 
-This package uses poetry for dependency management.
+This package uses `uv` for dependency management.
 
-Install poetry in the system `site_packages`. DO NOT INSTALL IT in a virtual environment itself.
+Install `uv` in the system `site_packages`. DO NOT INSTALL IT in a virtual environment itself.
 
-To install poetry, run:
+To install `uv`, run:
 
 ```bash
-pip install poetry
+pip install uv
 ```
 
 ### Building the Development Environment
@@ -270,27 +270,9 @@ pip install poetry
 2. Install dependencies
 
     ```bash
-    cd cosmic-fastapi && poetry install
+    cd cosmic-fastapi && uv sync --dev
     ```
 
-   Note that poetry doesn't activate the virtual environment for you. You have to do it manually.
-   Or prefix subsequent the commands with
-
-    ```bash
-    poetry run
-    ```
-
-   You can view the environment that poetry uses with
-
-    ```bash
-    poetry env info
-    ```
-
-   To activate run:
-
-    ```bash
-    poetry shell
-    ```
 3. Activate pre-commit hooks (Optional)
 
    Using [pre-commit](https://pre-commit.com/) to run some checks before committing is highly recommended.
@@ -304,17 +286,15 @@ pip install poetry
    To run the checks manually run:
 
     ```bash
-    poetry run pre-commit run --all-files
+    uv run pre-commit run --all-files
     ```
-
-   The following checks are run: `black`, `flake8`, `isort`, `mypy`, `pylint`.
 
 ## Running Local
 
 1. Run:
 
     ```bash
-    poetry run python -m template.main
+    uv run python -m template.main
     ```
 2. Go to http://localhost:8000/docs to see the API documentation.
 
@@ -323,7 +303,7 @@ pip install poetry
 You can run the tests with:
 
 ```bash
-poetry run pytest
+uv run pytest
 ```
 
 or with the `make` command:
@@ -335,21 +315,13 @@ make test
 To generate a coverage report add `--cov src`.
 
 ```bash
-poetry run pytest --cov src
+uv run pytest --cov src
 ```
 
 Or with the `make` command:
 
 ```bash
 make cover
-```
-
-## Updating Dependencies
-
-To update the dependencies run:
-
-```bash
-poetry update
 ```
 
 ## Recommended Readings
@@ -368,7 +340,7 @@ more details or visit https://mit-license.org/.
 This project was designed and developed
 by [Tomás Sánchez](https://tomsanchez.com.ar/about/) <[info@tomsanchez.com.ar](mailto:info@tomsanchez.com.ar)>.
 
-Deeply inspired by [FastAPI-MVC](https://fastapi-mvc.netlify.app/)
+Deeply inspired by [FastAPI-MVC](https://github.com/fastapi-mvc/fastapi-mvc)
 following  [Cosmic Python](https://www.cosmicpython.com/) guidelines for project structure.
 
 If you find this project useful, please consider supporting its development by sponsoring it.

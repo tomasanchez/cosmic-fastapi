@@ -1,0 +1,20 @@
+services:
+  app:
+    # This tells Docker Compose to build the image from the Dockerfile
+    # in the current directory.
+    build: .
+    # Name the container for easier identification.
+    container_name: cosmic-fastapi-app
+    # This maps port 8000 on your local machine to port 8000 inside the container,
+    # allowing you to access the running application at http://localhost:8000.
+    ports:
+      - "8000:8000"
+    # This mounts your local 'src' folder into the container at '/app/src'.
+    # This is the key to live-reloading: changes you make to your code locally
+    # will be immediately reflected inside the container.
+    volumes:
+      - ./src:/app/src
+    # Override environment variables defined in the Dockerfile.
+    # Here, we enable Uvicorn's auto-reload feature for development.
+    environment:
+      - ENV=development
