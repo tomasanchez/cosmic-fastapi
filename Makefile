@@ -17,27 +17,43 @@ clean: ## Removes all build and test artifacts
 dist-clean: clean ## Removes all build and test artifacts and virtual environment
 	rm -rf .venv
 
+.PHONY: install
+install: ## Install dependencies
+	uv sync
+
+.PHONY: dev
+dev: ## Install dev dependencies
+	uv sync --dev
+
 .PHONY: build
-build: ## Creates a virtual environment and installs development dependencies
-	poetry install
+build: ## Creates a virtual environment
+	uv venv
 
 .PHONY: test
 test: ## Executes tests cases
-	poetry run pytest
+	uv run pytest
 
 .PHONY: cover
 cover: ## Executes tests cases with coverage reports
-	poetry run pytest --cov . --junitxml reports/xunit.xml \
+	uv run pytest --cov . --cov-fail-under=100 --junitxml reports/xunit.xml \
 	--cov-report xml:reports/coverage.xml --cov-report term-missing
 
-.PHONY: lint
-lint: ## Applies static analysis, checks and code formatting
-	poetry run pre-commit run --all-files
+.PHONY: format
+format: ## Formats the code using Ruff
+	uv run ruff check ./src
 
-.PHONY: ci-prebuild
-ci-prebuild: ## Install build tools and prepare project directory for the CI pipeline
-	pip install --disable-pip-version-check poetry
-	cat /dev/null > requirements.txt
+.PHONY: pre-commit
+pre-commit: ## Runs pre-commit hooks on all files
+	uv run pre-commit run --all-files
+
+.PHONY: lint
+lint: ## Applies static analysis and type checks
+	uv run ruff check ./src
+
+.PHONY: fix
+fix:  ## Fix lint errors
+	uv run ruff check ./src ./tests --fix
+	uv run ruff format ./src ./tests
 
 .PHONY: help
 help: ## Show make target documentation
