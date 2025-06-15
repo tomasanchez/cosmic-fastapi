@@ -17,7 +17,6 @@ clean: ## Removes all build and test artifacts
 dist-clean: clean ## Removes all build and test artifacts and virtual environment
 	rm -rf .venv
 
-
 .PHONY: install
 install: ## Install dependencies
 	uv sync
@@ -36,7 +35,7 @@ test: ## Executes tests cases
 
 .PHONY: cover
 cover: ## Executes tests cases with coverage reports
-	uv run pytest --cov . --junitxml reports/xunit.xml \
+	uv run pytest --cov . --cov-fail-under=100 --junitxml reports/xunit.xml \
 	--cov-report xml:reports/coverage.xml --cov-report term-missing
 
 .PHONY: format
@@ -55,11 +54,6 @@ lint: ## Applies static analysis and type checks
 fix:  ## Fix lint errors
 	uv run ruff check ./src ./tests --fix
 	uv run ruff format ./src ./tests
-
-.PHONY: ci-prebuild
-ci-prebuild: ## Install build tools and prepare project directory for the CI pipeline
-	pip install --disable-pip-version-check uv
-	cat /dev/null > requirements.txt
 
 .PHONY: help
 help: ## Show make target documentation
