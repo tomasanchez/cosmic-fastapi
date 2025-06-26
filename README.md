@@ -1,3 +1,13 @@
+<p align="center">
+<img width="320" height="320" src="docs/cosmic_fastapi.png" alt='uvicorn'>
+</p>
+
+<p align="center">
+<em>Kickoff your app like a kangaroo through the stars: clean, fast, and unapologetically structured.</em>
+</p>
+
+---
+
 # Cosmic FastAPI
 
 **Cosmic FastAPI** is a template for creating a [FastAPI](https://fastapi.tiangolo.com/) project following
@@ -26,13 +36,12 @@ the [Cosmic Python](https://www.cosmicpython.com/) guidelines.
         * [Clean Architecture](#clean-architecture)
     * [Continuous Integration](#continuous-integration)
     * [Development Environment](#development-environment)
-        * [Installing Poetry](#installing-poetry)
+        * [Installing UV](#installing-uv)
         * [Building the Development Environment](#building-the-development-environment)
     * [Running Local](#running-local)
     * [Running Tests](#running-tests)
-    * [Updating Dependencies](#updating-dependencies)
     * [Recommended Readings](#recommended-readings)
-    * [License](#license)
+    * [Licence](#licence)
     * [Acknowledgements](#acknowledgements)
 
 <!-- TOC -->
@@ -73,7 +82,7 @@ Variables prefixed with `UVICORN_` are used to configure the server.
 ### Recommended Directory Structure
 
 As our application gets bigger, we’ll need to keep tidying our directory structure. The layout of our project gives us
-useful hints about what kinds of object we’ll find in each file. We can use this to navigate our codebase more easily.
+useful hints about what kinds of objects we’ll find in each file. We can use this to navigate our codebase more easily.
 
 ```text
 .
@@ -108,19 +117,21 @@ useful hints about what kinds of object we’ll find in each file. We can use th
       of data that your API receives or returns.
     - **Models**, represent the domain entities, business objects of interest.
 - **(2)**. The service layer will be distinguished. What is the difference between a domain service and a service layer?
-    - Application service (our service layer) ts job is to handle requests from the outside world and to orchestrate an
+    - Application service (our service layer) its job is to handle requests from the outside world and to orchestrate an
       operation.
     - Domain Service. This is the name for a piece of logic that belongs in the domain model but doesn't sit naturally
       inside a stateful
       entity or value object. For example, if you were building a shopping cart application, you might choose to build
       taxation rules as a domain service.
-- **(3)**. Adapters, it comes from ports and adapters terminology. This will fill up with any other abstractions around
+- **(3)**. Adapters, it comes from "ports and adapters" terminology. This will fill up with any other abstractions
+  around
   external I/O. Strictly speaking, you would call these secondary adapters or driven adapters, or sometimes
   inward-facing adapters.
 - **(4)**. Entrypoints are the places we drive our application from. In the official ports and adapters terminology,
   these are adapters too, and are referred to as primary, driving, or outward-facing adapters.
 
-We may even consider splitting our models, schemas, events and commands into separate packages and files if they get too
+We may even consider splitting our models, schemas, events, and commands into separate packages and files if they get
+too
 big.
 
 ### Domain Driven Design
@@ -130,16 +141,16 @@ big.
 #### Models
 
 First, we define our domain models. These are the objects that represent the business concepts we’re working with.
-They should be as simple as possible, and contain only the attributes that are essential to the business, utilizing the
+They should be as simple as possible and contain only the attributes that are essential to the business, using the
 business jargon. The idea is that, if you were to show these models to a non-technical person, but someone who
-understand the business process, they would be able to understand what the application does. Models encapsulate the
-behavior, state, and business rules that govern the application. Models can encompass entities, aggregates, and
+understands the business process, they would be able to understand what the application does. Models encapsulate the
+behaviour, state, and business rules that govern the application. Models can encompass entities, aggregates, and
 sometimes even Value Objects.
 
 ##### Entities
 
 Entities are objects that have distinct identities that run throughout their lifecycle. In other words, an entity is
-defined not just by its attributes, but also by a unique identifier that differentiates it from other entities of the
+defined not just by its attributes but also by a unique identifier that differentiates it from other entities of the
 same type. Entities are mutable and can have their attributes modified while maintaining the same identity. They are
 often used to represent real-world objects or concepts that have an ongoing existence.
 
@@ -154,7 +165,7 @@ Objects with the same attributes are considered equal. They are immutable and ca
 that are shared whenever their values are the same.
 
 Value Objects can be part of a `Model`. In fact, they often enhance the expressiveness and maintainability of Models.
-Value Objects help to define attributes with semantic meaning and encapsulate their validation and behavior. In some
+Value Objects help to define attributes with semantic meaning and encapsulate their validation and behaviour. In some
 cases, a Model might consist of one or more entities and Value Objects that work together to represent and manage the
 business logic and data.
 
@@ -277,13 +288,13 @@ pip install uv
 
    Using [pre-commit](https://pre-commit.com/) to run some checks before committing is highly recommended.
 
-   To activate the pre-commit hooks run:
+   To activate the pre-commit hooks, run:
 
     ```bash
     pre-commit install
     ```
 
-   To run the checks manually run:
+   To run the checks manually, run:
 
     ```bash
     uv run pre-commit run --all-files
@@ -328,11 +339,12 @@ make cover
 
 - [FastAPI official Documentation](https://fastapi.tiangolo.com/)
 - [Pydantic official Documentation](https://pydantic-docs.helpmanual.io/)
+- [UV official Documentation](https://docs.astral.sh/uv/)
 - [Cosmic Python](https://cosmicpython.com/)
 
-## License
+## Licence
 
-This project is licensed under the terms of the MIT license unless otherwise specified. See [`LICENSE`](LICENSE) for
+This project is licensed under the terms of the MIT licence unless otherwise specified. See [`LICENSE`](LICENSE) for
 more details or visit https://mit-license.org/.
 
 ## Acknowledgements
