@@ -1,6 +1,7 @@
 """
 Test suite for API Settings
 """
+
 import pytest
 
 from template.settings.api_settings import ApplicationSettings, ContactInfo, LicenseInfo
@@ -45,4 +46,4 @@ class TestAPISettings:
         assert settings.PROJECT_DESCRIPTION
         assert isinstance(settings.PROJECT_LICENSE, LicenseInfo)
         assert isinstance(settings.PROJECT_CONTACT, ContactInfo)
-        assert settings.VERSION == __version__
+        assert __version__ == settings.VERSION

@@ -1,6 +1,7 @@
 """
 Uvicorn settings tests.
 """
+
 from template.settings.uvicorn_settings import UvicornSettings
 
 

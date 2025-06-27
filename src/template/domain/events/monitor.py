@@ -1,6 +1,7 @@
 """
 Events related to the monitoring of the application.
 """
+
 from typing import Literal
 
 from pydantic import Field

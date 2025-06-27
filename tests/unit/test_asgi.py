@@ -1,6 +1,7 @@
 """
 Test suite for ASGI Application
 """
+
 from template.asgi import get_application
 
 

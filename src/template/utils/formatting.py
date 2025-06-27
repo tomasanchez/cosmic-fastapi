@@ -1,6 +1,7 @@
 """
 Formatting utilities.
 """
+
 from re import sub
 
 

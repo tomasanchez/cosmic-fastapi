@@ -2,6 +2,7 @@
 
 Responsible for probing the system liveness and readiness.
 """
+
 from fastapi import APIRouter, status
 from starlette.responses import RedirectResponse
 

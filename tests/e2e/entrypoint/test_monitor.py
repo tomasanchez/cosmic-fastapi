@@ -1,6 +1,7 @@
 """
 Test Cases for Monitor Entrypoint.
 """
+
 import pytest
 from fastapi import status
 

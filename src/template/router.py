@@ -5,6 +5,7 @@ Defines all FastAPI application endpoints.
 Resources:
     1. https://fastapi.tiangolo.com/tutorial/bigger-applications
 """
+
 from fastapi import APIRouter
 
 from template.entrypoint import monitor

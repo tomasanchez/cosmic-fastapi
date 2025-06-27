@@ -1,6 +1,7 @@
 """
 Applicant Main File.
 """
+
 from fastapi import FastAPI
 
 from template.asgi import get_application

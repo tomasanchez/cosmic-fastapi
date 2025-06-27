@@ -1,6 +1,7 @@
 """
 Formatting utilities tests.
 """
+
 from template.utils.formatting import to_camel
 
 
