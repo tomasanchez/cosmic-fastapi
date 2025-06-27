@@ -40,7 +40,7 @@ cover: ## Executes tests cases with coverage reports
 
 .PHONY: format
 format: ## Formats the code using Ruff
-	uv run ruff check ./src
+	uv run ruff format ./src ./tests
 
 .PHONY: pre-commit
 pre-commit: ## Runs pre-commit hooks on all files
@@ -49,11 +49,11 @@ pre-commit: ## Runs pre-commit hooks on all files
 .PHONY: lint
 lint: ## Applies static analysis and type checks
 	uv run ruff check ./src
+	uv run ruff format --check ./src
 
 .PHONY: fix
 fix:  ## Fix lint errors
-	uv run ruff check ./src ./tests --fix
-	uv run ruff format ./src ./tests
+	uv run ruff check --fix ./src
 
 .PHONY: help
 help: ## Show make target documentation
