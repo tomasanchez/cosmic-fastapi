@@ -10,6 +10,7 @@ import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 ACTIVE_STATUS = "Accepted"
 ALLOWED_STATUSES = {"Accepted", "Deprecated", "Proposed", "Rejected", "Superseded"}
@@ -102,6 +103,7 @@ def _parse_decision(path: Path) -> Decision:
     if status not in ALLOWED_STATUSES:
         allowed = ", ".join(sorted(ALLOWED_STATUSES))
         raise _error(f"{path.name}: status must be one of: {allowed}")
+    status = cast(str, status)
     if "Date" not in metadata:
         raise _error(f"{path.name}: missing Date metadata")
 
