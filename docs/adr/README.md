@@ -1,0 +1,66 @@
+# Architecture Decision Records
+
+This directory records the architectural defaults for projects created from
+Cosmic FastAPI. The template modernizes the intent of
+[Architecture Patterns with Python](https://www.cosmicpython.com/book/preface.html)
+instead of copying its implementation line for line.
+
+The standard is designed for people and coding agents. An agent should read
+these records before adding a feature, persistence model, background worker, or
+new infrastructure dependency.
+
+## Status
+
+The current source tree is an evolving scaffold. Accepted ADRs describe the
+target standard. Existing code that conflicts with an accepted ADR should be
+treated as migration work, not as a precedent to repeat.
+
+## Decision Records
+
+| ADR | Decision | Status |
+| --- | --- | --- |
+| [0001](0001-modern-cosmic-python-standard.md) | Modern Cosmic Python Standard | Accepted |
+| [0002](0002-domain-models-are-framework-independent.md) | Domain Models Are Framework Independent | Accepted |
+| [0003](0003-fastapi-and-pydantic-live-at-boundaries.md) | FastAPI and Pydantic Live at Boundaries | Accepted |
+| [0004](0004-sqlalchemy-2-persistence-behind-repositories.md) | SQLAlchemy 2 Persistence Stays Behind Repositories | Accepted |
+| [0005](0005-explicit-composition-and-message-dispatch.md) | Explicit Composition and Message Dispatch | Accepted |
+| [0006](0006-async-is-an-explicit-end-to-end-choice.md) | Async Is an Explicit End-to-End Choice | Accepted |
+| [0007](0007-tooling-and-test-pyramid.md) | Tooling and Test Pyramid | Accepted |
+| [0008](0008-static-typing-with-pyrefly.md) | Static Typing With Pyrefly | Accepted |
+| [0009](0009-conventional-commits.md) | Conventional Commits | Accepted |
+| [0010](0010-adr-lifecycle-and-decision-pruning.md) | ADR Lifecycle and Decision Pruning | Accepted |
+
+## Agent Checklist
+
+Before writing code:
+
+1. Identify the domain behavior and invariant.
+2. Put business rules in plain Python domain objects.
+3. Use Pydantic models to validate data crossing a system boundary.
+4. Access persistence through a repository and transaction boundary.
+5. Wire dependencies in the composition root.
+6. Add the highest useful test that does not require infrastructure.
+7. Add integration tests where adapters meet real infrastructure.
+8. Record a new ADR when changing an accepted default.
+9. Use Conventional Commits when creating Git history.
+
+## Decision Pruner
+
+Run the decision pruner before architectural work:
+
+```bash
+make adr-context
+```
+
+This validates the ADR registry and prints only active guidance. After changing
+an ADR, run:
+
+```bash
+make adr-check
+```
+
+## Creating an ADR
+
+Copy [template.md](template.md), assign the next four-digit number, and keep the
+decision focused. An ADR should explain both the chosen default and when an
+exception is justified.

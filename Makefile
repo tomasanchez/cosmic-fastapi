@@ -33,6 +33,14 @@ build: ## Creates a virtual environment
 test: ## Executes tests cases
 	uv run pytest
 
+.PHONY: adr-check
+adr-check: ## Validates the architecture decision registry
+	uv run python scripts/prune_decisions.py check
+
+.PHONY: adr-context
+adr-context: ## Prints active architecture guidance for agents
+	uv run python scripts/prune_decisions.py context
+
 .PHONY: cover
 cover: ## Executes tests cases with coverage reports
 	uv run pytest --cov . --cov-fail-under=100 --junitxml reports/xunit.xml \

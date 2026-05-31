@@ -21,6 +21,7 @@ the [Cosmic Python](https://www.cosmicpython.com/) guidelines.
     * [Content](#content)
     * [About](#about)
         * [Features](#features)
+        * [Architecture Decision Records](#architecture-decision-records)
         * [Project Structure](#project-structure)
             * [Environment Variables](#environment-variables)
         * [Recommended Directory Structure](#recommended-directory-structure)
@@ -53,6 +54,13 @@ the [Cosmic Python](https://www.cosmicpython.com/) guidelines.
 This template includes `FastAPI` using the fastest `Pydantic V2` model validation. Designed for Event-Driven
 Architecture (EDA) and Domain-Driven Design (DDD). Providing a clean and simple structure to start a new project. With
 the addition of `pre-commit` hooks to ensure code quality. And ready to be used in a `CI/CD` GitHub Workflows pipeline.
+
+### Architecture Decision Records
+
+The [Architecture Decision Records](docs/adr/README.md) define the modern Cosmic Python standard used by this template.
+They are the first reference for people and coding agents extending the project. The records preserve the book's
+domain-first philosophy while adopting FastAPI, Pydantic 2, SQLAlchemy 2, Alembic, uv, Ruff, Pyrefly, and pytest.
+Repository-level [agent instructions](AGENTS.md) turn those decisions into an implementation workflow.
 
 ### Project Structure
 
