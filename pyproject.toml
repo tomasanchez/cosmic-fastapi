@@ -10,6 +10,8 @@ dependencies = [
     "uvicorn>=0.34.0",
     "pydantic-settings>=2.9.0",
     "pydantic[email]>=2.11.0",
+    "sqlalchemy>=2.0.41",
+    "alembic>=1.16.2",
 ]
 
 [dependency-groups]
@@ -20,6 +22,7 @@ dev = [
     "httpx>=0.28.0",
     "pytest-cov>=6.2.0",
     "ruff",
+    "pyrefly>=1.0.0",
 ]
 
 [build-system]
@@ -97,3 +100,7 @@ python_files = "test_*.py"
 junit_family = "xunit1"
 log_cli = false
 log_level = "DEBUG"
+
+[tool.pyrefly]
+project-includes = ["src", "scripts", "tests", "migrations"]
+search-path = [".", "src"]

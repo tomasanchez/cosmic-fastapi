@@ -1,11 +1,11 @@
 """
 Test Cases for Monitor Entrypoint.
 """
+
 import pytest
 from fastapi import status
 
-from template.domain.events.monitor import LivenessProbed, ReadinessProbed
-from template.domain.schemas import ResponseModel
+from template.entrypoint.schemas import LivenessProbed, ReadinessProbed, ResponseModel
 
 
 class TestMonitorEntryPoint:

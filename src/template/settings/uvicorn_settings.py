@@ -2,6 +2,8 @@
 Uvicorn settings
 """
 
+from ipaddress import ip_address
+
 from pydantic import IPvAnyAddress
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -29,7 +31,7 @@ class UvicornSettings(BaseSettings):
         1. https://docs.pydantic.dev/latest/usage/pydantic_settings/
     """
 
-    HOST: IPvAnyAddress = IPvAnyAddress("127.0.0.1")
+    HOST: IPvAnyAddress = ip_address("127.0.0.1")
     PORT: int = 8000
     LOG_LEVEL: str = "info"
     RELOAD: bool = False

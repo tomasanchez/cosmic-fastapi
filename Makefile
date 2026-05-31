@@ -33,14 +33,26 @@ build: ## Creates a virtual environment
 test: ## Executes tests cases
 	uv run pytest
 
+.PHONY: adr-check
+adr-check: ## Validates the architecture decision registry
+	uv run python scripts/prune_decisions.py check
+
+.PHONY: adr-context
+adr-context: ## Prints active architecture guidance for agents
+	uv run python scripts/prune_decisions.py context
+
+.PHONY: migrate
+migrate: ## Applies relational database migrations
+	uv run alembic upgrade head
+
 .PHONY: cover
 cover: ## Executes tests cases with coverage reports
-	uv run pytest --cov . --cov-fail-under=100 --junitxml reports/xunit.xml \
+	uv run pytest --cov src/template --cov-fail-under=100 --junitxml reports/xunit.xml \
 	--cov-report xml:reports/coverage.xml --cov-report term-missing
 
 .PHONY: format
 format: ## Formats the code using Ruff
-	uv run ruff check ./src
+	uv run ruff format ./src ./tests ./scripts ./migrations
 
 .PHONY: pre-commit
 pre-commit: ## Runs pre-commit hooks on all files
@@ -48,12 +60,13 @@ pre-commit: ## Runs pre-commit hooks on all files
 
 .PHONY: lint
 lint: ## Applies static analysis and type checks
-	uv run ruff check ./src
+	uv run ruff check ./src ./tests ./scripts ./migrations
+	uv run ruff format --check ./src ./tests ./scripts ./migrations
+	uv run pyrefly check
 
 .PHONY: fix
 fix:  ## Fix lint errors
-	uv run ruff check ./src ./tests --fix
-	uv run ruff format ./src ./tests
+	uv run ruff check --fix ./src ./tests ./scripts ./migrations
 
 .PHONY: help
 help: ## Show make target documentation

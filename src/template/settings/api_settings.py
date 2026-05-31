@@ -1,6 +1,7 @@
 """
 API Settings
 """
+
 from pydantic import BaseModel, EmailStr, HttpUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 

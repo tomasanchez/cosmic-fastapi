@@ -21,6 +21,7 @@ the [Cosmic Python](https://www.cosmicpython.com/) guidelines.
     * [Content](#content)
     * [About](#about)
         * [Features](#features)
+        * [Architecture Decision Records](#architecture-decision-records)
         * [Project Structure](#project-structure)
             * [Environment Variables](#environment-variables)
         * [Recommended Directory Structure](#recommended-directory-structure)
@@ -54,6 +55,15 @@ This template includes `FastAPI` using the fastest `Pydantic V2` model validatio
 Architecture (EDA) and Domain-Driven Design (DDD). Providing a clean and simple structure to start a new project. With
 the addition of `pre-commit` hooks to ensure code quality. And ready to be used in a `CI/CD` GitHub Workflows pipeline.
 
+### Architecture Decision Records
+
+The [Architecture Decision Records](docs/adr/README.md) define the modern Cosmic Python standard used by this template.
+They are the first reference for people and coding agents extending the project. The records preserve the book's
+domain-first philosophy while adopting FastAPI, Pydantic 2, SQLAlchemy 2, Alembic, uv, Ruff, Pyrefly, and pytest.
+Repository-level [agent instructions](AGENTS.md) turn those decisions into an implementation workflow.
+The [Cosmic Python coverage matrix](docs/cosmic-python-coverage.md) distinguishes included patterns from conditional
+extensions such as optimistic locking, broker adapters, and the transactional outbox.
+
 ### Project Structure
 
 #### Environment Variables
@@ -79,44 +89,60 @@ Variables prefixed with `UVICORN_` are used to configure the server.
 | UVICORN_LOG_LEVEL | Log Level             | 'info'        |
 | UVICORN_RELOAD    | Enable/Disable Reload | False         |
 
+Variables prefixed with `DATABASE_` configure relational persistence.
+
+| Name                        | Description                              | Default Value                          |
+|-----------------------------|------------------------------------------|----------------------------------------|
+| DATABASE_URL                | SQLAlchemy database URL                  | sqlite+pysqlite:///./cosmic-fastapi.db |
+| DATABASE_AUTO_CREATE_SCHEMA | Create tables at startup for local demos | False                                  |
+
+Use Alembic migrations for normal schema management. `DATABASE_AUTO_CREATE_SCHEMA`
+exists for isolated tests and local demonstrations only.
+
 ### Recommended Directory Structure
 
-As our application gets bigger, we’ll need to keep tidying our directory structure. The layout of our project gives us
-useful hints about what kinds of objects we’ll find in each file. We can use this to navigate our codebase more easily.
+As the application grows, keep the dependency direction visible in the directory structure. The domain remains plain
+Python. Framework validation belongs at the entrypoint boundary, and persistence belongs in adapters.
 
 ```text
 .
-├── settings.py
-├── domain  #(1)
-│   ├── commands.py
-│   ├── events.py
-│   ├── schemas.py
-│   └── models.py
-├── service_layer #(2)
-│   └── services.py
-├── adapters  #(3)
-│   ├── orm.py
-│   └── repository.py
-├── entrypoints  #(4)
-│   ├── __init__.py
-│   └── monitor.py
-└── tests
-    ├── __init__.py
-    ├── conftest.py
-    ├── unit
-    ├── integration
-    └── e2e
-        └── test_monitor.py
+|-- migrations
+|-- src/template
+|   |-- adapters                 # (3)
+|   |   |-- models
+|   |   |-- queries.py
+|   |   |-- repository.py
+|   |   `-- unit_of_work.py
+|   |-- domain                   # (1)
+|   |   |-- commands
+|   |   |-- events
+|   |   `-- models
+|   |-- entrypoint               # (4)
+|   |   |-- monitor.py
+|   |   |-- schemas.py
+|   |   `-- users.py
+|   |-- service_layer            # (2)
+|   |   |-- handlers.py
+|   |   |-- messagebus.py
+|   |   |-- queries.py
+|   |   |-- read_models.py
+|   |   |-- repository.py
+|   |   `-- unit_of_work.py
+|   |-- settings
+|   `-- bootstrap.py
+`-- tests
+    |-- unit
+    |-- integration
+    `-- e2e
 ```
 
 - **(1)**. Domain, from Domain Driven Architecture.
     - **Commands**, from Command Query Responsibility Segregation (CQRS). Commands are the messages that change
       the state of the system.
-    - **Events**, from Event Sourcing. Events are the messages that describe a change in the system.
-    - **Schemas**, from FastAPI, data models or data structures that are used to define the shape or structure
-      of data that your API receives or returns.
+    - **Events** describe facts that happened in the domain. Domain events do not imply Event Sourcing.
     - **Models**, represent the domain entities, business objects of interest.
-- **(2)**. The service layer will be distinguished. What is the difference between a domain service and a service layer?
+- **(2)**. The service layer coordinates use cases with handlers, a message bus, repository ports, and a unit of work.
+  What is the difference between a domain service and a service layer?
     - Application service (our service layer) its job is to handle requests from the outside world and to orchestrate an
       operation.
     - Domain Service. This is the name for a piece of logic that belongs in the domain model but doesn't sit naturally
@@ -127,16 +153,19 @@ useful hints about what kinds of objects we’ll find in each file. We can use t
   around
   external I/O. Strictly speaking, you would call these secondary adapters or driven adapters, or sometimes
   inward-facing adapters.
-- **(4)**. Entrypoints are the places we drive our application from. In the official ports and adapters terminology,
-  these are adapters too, and are referred to as primary, driving, or outward-facing adapters.
+- **(4)**. Entrypoints are the places we drive our application from. FastAPI routes and Pydantic request or response
+  schemas live here. In ports and adapters terminology, these are primary or driving adapters.
 
-We may even consider splitting our models, schemas, events, and commands into separate packages and files if they get
-too
-big.
+The root `bootstrap.py` module is the composition root. It wires concrete adapters to application ports without leaking
+framework concerns into the domain.
 
 ### Domain Driven Design
 
-`Commands`, `Events`, `Schemas` and `Models` are the building blocks of our **Domain**.
+`Commands`, `Events`, and `Models` are the building blocks of our **Domain**. Aggregates and behavior-rich domain objects
+remain plain Python. Commands and events may use frozen Pydantic models as immutable schema contracts. See
+[ADR 0011](docs/adr/0011-pydantic-message-schemas-with-plain-domain-aggregates.md). Python fields use `snake_case`;
+JSON message payloads use `camelCase` as documented in
+[ADR 0012](docs/adr/0012-camel-case-json-message-contracts.md).
 
 #### Models
 
@@ -187,26 +216,32 @@ and enforce invariants to ensure that the data remains in a valid and consistent
 
 #### Schemas
 
-Schemas are used to define the structure and validation rules for the input and output data of your API. Schemas help
-ensure that data is correctly formatted and adheres to specific criteria before being processed. They are often used to
-validate request payloads and to define the shape of the data returned from API endpoints.
+Schemas define validated data contracts. Boundary schemas describe the input and output data of an API or external
+adapter. Immutable command and event schemas describe application messages.
 
-In this project we use `Pydantic` to define our schemas. [Pydantic](https://pydantic-docs.helpmanual.io/) is a library
-that provides runtime checking and validation.
+In this project we use `Pydantic` for entrypoint schemas and immutable message schemas. Boundary objects are translated
+when their external contract differs from the application message. See the
+[Pydantic documentation](https://docs.pydantic.dev/) for runtime validation.
 
 #### Event Driven Architecture
 
-`Commands` and `Events` are the building blocks of our **Event Driven Architecture**. You can consider both as simple
-dataclasses, as they have no behaviour.
+`Commands` and `Events` are the building blocks of our **Event Driven Architecture**. They are immutable Pydantic
+models because they carry data contracts and have no behaviour.
 
 Both commands and events are often used in software architectures to promote separation of concerns, modularity, and
 extensibility. By encapsulating actions or occurrences into discrete objects, it becomes easier to reason about the
 system and make changes without impacting other parts of the codebase.
 
-In an API, we can use `commands` to represent requests from clients to perform certain actions. These commands may need
-to be validated before they can be processed. Once validated, they can be executed by an appropriate handler or service.
-Following this idea, we can use `events` to represent our API responses. For this, we can associate both as kind
-of `schemas`.
+In an API, boundary schemas validate client requests and are translated into commands. A handler executes the command
+inside a unit of work. Events raised by aggregates are dispatched to interested handlers after the command completes.
+HTTP responses remain boundary schemas rather than domain events.
+
+Commands may enter through HTTP or message-queue adapters. Domain events may remain in-process or be translated into
+versioned integration events for Kafka, RabbitMQ, SQS, or another broker. Integration events and HTTP responses can
+describe the same business fact without sharing one lifecycle or envelope.
+
+Write-side commands load aggregate roots through repositories and a unit of work. Read-only queries use purpose-built
+read models and reader adapters, as described in [ADR 0014](docs/adr/0014-cqrs-read-models-are-purpose-built.md).
 
 ##### Commands
 
@@ -302,12 +337,18 @@ pip install uv
 
 ## Running Local
 
-1. Run:
+1. Apply database migrations:
+
+    ```bash
+    make migrate
+    ```
+
+2. Run:
 
     ```bash
     uv run python -m template.main
     ```
-2. Go to http://localhost:8000/docs to see the API documentation.
+3. Go to http://localhost:8000/docs to see the API documentation.
 
 ## Running Tests
 
