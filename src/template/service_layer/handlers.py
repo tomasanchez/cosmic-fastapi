@@ -6,7 +6,7 @@ from uuid import UUID
 from template.domain.commands.user import RegisterUser
 from template.domain.events.user import UserRegistered
 from template.domain.models.user import User
-from template.service_layer.unit_of_work import AbstractUnitOfWork
+from template.service_layer.unit_of_work import AbstractUnitOfWork, IntegrityConflict
 
 
 class EmailAlreadyRegistered(ValueError):
@@ -29,9 +29,17 @@ def register_user(command: RegisterUser, uow: AbstractUnitOfWork) -> UUID:
     with uow:
         if uow.users.get_by_email(command.email) is not None:
             raise EmailAlreadyRegistered(command.email)
-        user = User.register(name=command.name, email=command.email, settings=command.settings, user_id=command.user_id)
+        user = User.register(
+            name=command.name,
+            email=str(command.email),
+            settings=command.settings.to_domain(),
+            user_id=command.user_id,
+        )
         uow.users.add(user)
-        uow.commit()
+        try:
+            uow.commit()
+        except IntegrityConflict as error:
+            raise EmailAlreadyRegistered(command.email) from error
     return user.id
 
 

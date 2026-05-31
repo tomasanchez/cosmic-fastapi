@@ -8,7 +8,6 @@ from pydantic import EmailStr, Field
 
 from template.bootstrap import ApplicationContainer
 from template.domain.commands.user import RegisterUser
-from template.domain.models.user import UserSettings
 from template.entrypoint.schemas import CamelCaseModel, ResponseModel
 from template.service_layer.handlers import EmailAlreadyRegistered
 from template.service_layer.queries import get_user
@@ -25,15 +24,6 @@ class UserSettingsSchema(CamelCaseModel):
     marketing_enabled: bool = Field(default=False)
     backup_email: EmailStr | None = Field(default=None)
 
-    def to_domain(self) -> UserSettings:
-        """Translate boundary data into a domain value object."""
-        return UserSettings(
-            theme=self.theme,
-            language=self.language,
-            marketing_enabled=self.marketing_enabled,
-            backup_email=str(self.backup_email) if self.backup_email else None,
-        )
-
 
 class RegisterUserRequest(CamelCaseModel):
     """Validate a user registration request."""
@@ -41,6 +31,10 @@ class RegisterUserRequest(CamelCaseModel):
     name: str = Field(min_length=1)
     email: EmailStr
     settings: UserSettingsSchema = Field(default_factory=UserSettingsSchema)
+
+    def to_command(self) -> RegisterUser:
+        """Translate boundary data into a registration command."""
+        return RegisterUser.model_validate(self.model_dump())
 
 
 class UserResponse(CamelCaseModel):
@@ -81,9 +75,7 @@ Container = Annotated[ApplicationContainer, Depends(get_container)]
 def register_user(payload: RegisterUserRequest, container: Container) -> ResponseModel[UserResponse]:
     """Register a user."""
     try:
-        user_id = container.bus.handle(
-            RegisterUser(name=payload.name, email=str(payload.email), settings=payload.settings.to_domain())
-        )
+        user_id = container.bus.handle(payload.to_command())
     except EmailAlreadyRegistered as error:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered") from error
 

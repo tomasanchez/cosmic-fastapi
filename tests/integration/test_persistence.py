@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import DateTime, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -15,6 +15,7 @@ from template.adapters.queries import SqlAlchemyUserReader
 from template.adapters.repository import SqlAlchemyUserRepository
 from template.adapters.unit_of_work import SqlAlchemyUnitOfWork
 from template.domain.models.user import User
+from template.service_layer.unit_of_work import IntegrityConflict
 
 
 @pytest.fixture(name="session_factory")
@@ -104,6 +105,37 @@ class TestSqlAlchemyUnitOfWork:
 
         # THEN
         assert user.created_at == created_at
+
+    def test_declares_timezone_aware_timestamp_storage(self):
+        """
+        GIVEN the SQLAlchemy user persistence record
+        WHEN its created-at column is inspected
+        THEN timezone-aware storage is configured
+        """
+        # WHEN
+        column_type = UserRecord.__table__.columns["created_at"].type
+
+        # THEN
+        assert isinstance(column_type, DateTime)
+        assert column_type.timezone is True
+
+    def test_translates_integrity_errors(self, session_factory: sessionmaker[Session]):
+        """
+        GIVEN two users with the same globally unique email
+        WHEN the second transaction commits
+        THEN the SQLAlchemy adapter raises an application persistence conflict
+        """
+        # GIVEN
+        first_user = User.register(name="Ada Lovelace", email="ada@example.com")
+        second_user = User.register(name="Other Ada", email="ada@example.com")
+        with SqlAlchemyUnitOfWork(session_factory) as uow:
+            uow.users.add(first_user)
+            uow.commit()
+
+        # WHEN / THEN
+        with pytest.raises(IntegrityConflict), SqlAlchemyUnitOfWork(session_factory) as uow:
+            uow.users.add(second_user)
+            uow.commit()
 
 
 class TestSqlAlchemyUserReader:

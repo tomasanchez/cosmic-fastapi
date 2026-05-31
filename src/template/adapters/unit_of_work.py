@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from types import TracebackType
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from template.adapters.repository import SqlAlchemyUserRepository
-from template.service_layer.unit_of_work import AbstractUnitOfWork
+from template.service_layer.unit_of_work import AbstractUnitOfWork, IntegrityConflict
 
 
 class SqlAlchemyUnitOfWork(AbstractUnitOfWork):
@@ -39,7 +40,10 @@ class SqlAlchemyUnitOfWork(AbstractUnitOfWork):
 
     def commit(self) -> None:
         """Commit the SQLAlchemy transaction."""
-        self.session.commit()
+        try:
+            self.session.commit()
+        except IntegrityError as error:
+            raise IntegrityConflict from error
 
     def rollback(self) -> None:
         """Roll back the SQLAlchemy transaction."""

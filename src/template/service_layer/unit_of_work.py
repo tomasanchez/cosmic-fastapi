@@ -10,6 +10,10 @@ from template.domain.messages import Event
 from template.service_layer.repository import UserRepository
 
 
+class IntegrityConflict(RuntimeError):
+    """Raised when persistence rejects a conflicting write."""
+
+
 class AbstractUnitOfWork(ABC):
     """Provide atomic persistence and event collection."""
 

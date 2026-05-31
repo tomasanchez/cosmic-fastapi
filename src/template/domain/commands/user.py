@@ -1,17 +1,36 @@
 """Commands handled by user application services."""
 
+from typing import Literal
 from uuid import UUID, uuid4
 
-from pydantic import Field
+from pydantic import EmailStr, Field
 
 from template.domain.messages import Command
 from template.domain.models.user import UserSettings
 
 
+class RegisterUserSettings(Command):
+    """Validate preferences supplied with a user registration command."""
+
+    theme: Literal["light", "dark"] = "light"
+    language: str = "en"
+    marketing_enabled: bool = False
+    backup_email: EmailStr | None = None
+
+    def to_domain(self) -> UserSettings:
+        """Translate command settings into a domain value object."""
+        return UserSettings(
+            theme=self.theme,
+            language=self.language,
+            marketing_enabled=self.marketing_enabled,
+            backup_email=str(self.backup_email) if self.backup_email else None,
+        )
+
+
 class RegisterUser(Command):
     """Request registration of one user."""
 
-    name: str
-    email: str
-    settings: UserSettings = Field(default_factory=UserSettings)
+    name: str = Field(min_length=1)
+    email: EmailStr
+    settings: RegisterUserSettings = Field(default_factory=RegisterUserSettings)
     user_id: UUID = Field(default_factory=uuid4)

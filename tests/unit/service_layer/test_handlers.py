@@ -7,7 +7,7 @@ import pytest
 from template.domain.commands.user import RegisterUser
 from template.domain.models.user import User
 from template.service_layer.handlers import EmailAlreadyRegistered, register_user
-from template.service_layer.unit_of_work import AbstractUnitOfWork
+from template.service_layer.unit_of_work import AbstractUnitOfWork, IntegrityConflict
 
 
 class FakeUserRepository:
@@ -41,14 +41,17 @@ class FakeUserRepository:
 class FakeUnitOfWork(AbstractUnitOfWork):
     """Provide an in-memory transaction boundary."""
 
-    def __init__(self, users: list[User] | None = None):
+    def __init__(self, users: list[User] | None = None, conflict_on_commit: bool = False):
         """Initialize fake repositories."""
         self.users = FakeUserRepository(users)
+        self.conflict_on_commit = conflict_on_commit
         self.committed = False
         self.rolled_back = False
 
     def commit(self) -> None:
         """Record a commit."""
+        if self.conflict_on_commit:
+            raise IntegrityConflict
         self.committed = True
 
     def rollback(self) -> None:
@@ -90,3 +93,17 @@ class TestRegisterUser:
         # WHEN / THEN
         with pytest.raises(EmailAlreadyRegistered):
             register_user(RegisterUser(name="Other Ada", email=" ADA@example.com "), uow)
+
+    def test_translates_a_concurrent_persistence_conflict(self):
+        """
+        GIVEN a registration race that violates a persistence constraint
+        WHEN the unit of work commits the new user
+        THEN the handler reports the documented duplicate-email error
+        """
+        # GIVEN
+        uow = FakeUnitOfWork(conflict_on_commit=True)
+
+        # WHEN / THEN
+        with pytest.raises(EmailAlreadyRegistered):
+            register_user(RegisterUser(name="Ada Lovelace", email="ada@example.com"), uow)
+        assert uow.rolled_back

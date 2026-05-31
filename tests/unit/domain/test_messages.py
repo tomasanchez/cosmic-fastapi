@@ -37,10 +37,40 @@ class TestMessages:
         user_id = "00000000-0000-0000-0000-000000000001"
 
         # WHEN
-        command = RegisterUser.model_validate({"name": "Ada Lovelace", "email": "ada@example.com", "userId": user_id})
+        command = RegisterUser.model_validate(
+            {
+                "name": "Ada Lovelace",
+                "email": "ada@example.com",
+                "settings": {"marketingEnabled": True, "backupEmail": "backup@example.com"},
+                "userId": user_id,
+            }
+        )
 
         # THEN
         assert str(command.user_id) == user_id
+        assert command.model_dump(mode="json")["settings"] == {
+            "theme": "light",
+            "language": "en",
+            "marketingEnabled": True,
+            "backupEmail": "backup@example.com",
+        }
+
+    @pytest.mark.parametrize(
+        ("name", "email"),
+        [
+            ("", "ada@example.com"),
+            ("Ada Lovelace", "not-an-email"),
+        ],
+    )
+    def test_rejects_invalid_commands(self, name: str, email: str):
+        """
+        GIVEN invalid registration data from an external adapter
+        WHEN the command schema validates it
+        THEN Pydantic rejects the command before dispatch
+        """
+        # WHEN / THEN
+        with pytest.raises(ValidationError):
+            RegisterUser(name=name, email=email)
 
     def test_rejects_message_mutation(self):
         """
