@@ -6,8 +6,7 @@ Responsible for probing the system liveness and readiness.
 from fastapi import APIRouter, status
 from starlette.responses import RedirectResponse
 
-from template.domain.events.monitor import LivenessProbed, ReadinessProbed
-from template.domain.schemas import ResponseModel
+from template.entrypoint.schemas import LivenessProbed, ReadinessProbed, ResponseModel
 
 router = APIRouter()
 

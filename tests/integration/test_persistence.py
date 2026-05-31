@@ -1,0 +1,144 @@
+"""Integration tests for SQLAlchemy repositories and units of work."""
+
+from collections.abc import Iterator
+from datetime import UTC, datetime
+from uuid import uuid4
+
+import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
+
+from template.adapters.models.base import Base
+from template.adapters.models.user import UserRecord
+from template.adapters.queries import SqlAlchemyUserReader
+from template.adapters.repository import SqlAlchemyUserRepository
+from template.adapters.unit_of_work import SqlAlchemyUnitOfWork
+from template.domain.models.user import User
+
+
+@pytest.fixture(name="session_factory")
+def fixture_session_factory() -> Iterator[sessionmaker[Session]]:
+    """Create an isolated in-memory SQLAlchemy session factory."""
+    engine = create_engine("sqlite+pysqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    Base.metadata.create_all(engine)
+    yield sessionmaker(bind=engine, expire_on_commit=False)
+    engine.dispose()
+
+
+class TestSqlAlchemyUnitOfWork:
+    """Test persistence through the SQLAlchemy unit of work."""
+
+    def test_commits_a_user(self, session_factory: sessionmaker[Session]):
+        """
+        GIVEN a SQLAlchemy unit of work
+        WHEN a user is added and explicitly committed
+        THEN a later unit of work can load the user
+        """
+        # GIVEN
+        user = User.register(name="Ada Lovelace", email="ada@example.com")
+
+        # WHEN
+        with SqlAlchemyUnitOfWork(session_factory) as uow:
+            uow.users.add(user)
+            uow.commit()
+
+        # THEN
+        with SqlAlchemyUnitOfWork(session_factory) as uow:
+            loaded_user = uow.users.get(user.id)
+        assert loaded_user == user
+
+    def test_rolls_back_uncommitted_work(self, session_factory: sessionmaker[Session]):
+        """
+        GIVEN a SQLAlchemy unit of work
+        WHEN a user is added without an explicit commit
+        THEN the user is rolled back
+        """
+        # GIVEN
+        user = User.register(name="Ada Lovelace", email="ada@example.com")
+
+        # WHEN
+        with SqlAlchemyUnitOfWork(session_factory) as uow:
+            uow.users.add(user)
+
+        # THEN
+        with SqlAlchemyUnitOfWork(session_factory) as uow:
+            assert uow.users.get(user.id) is None
+
+    def test_queries_a_user_by_normalized_email(self, session_factory: sessionmaker[Session]):
+        """
+        GIVEN a persisted user
+        WHEN users are queried by normalized and unknown email addresses
+        THEN the repository returns the matching aggregate or None
+        """
+        # GIVEN
+        user = User.register(name="Ada Lovelace", email="ada@example.com")
+        with SqlAlchemyUnitOfWork(session_factory) as uow:
+            uow.users.add(user)
+            uow.commit()
+
+        # WHEN / THEN
+        with SqlAlchemyUnitOfWork(session_factory) as uow:
+            assert uow.users.get_by_email(" ADA@example.com ") == user
+            assert uow.users.get_by_email("unknown@example.com") is None
+
+    def test_preserves_timezone_aware_record_timestamps(self):
+        """
+        GIVEN a persistence record with a timezone-aware timestamp
+        WHEN the record is translated to the domain
+        THEN the original timestamp is preserved
+        """
+        # GIVEN
+        created_at = datetime.now(UTC)
+        record = UserRecord(
+            id=str(uuid4()),
+            name="Ada Lovelace",
+            email="ada@example.com",
+            is_active=True,
+            settings={"theme": "light", "language": "en", "marketing_enabled": False, "backup_email": None},
+            created_at=created_at,
+        )
+
+        # WHEN
+        user = SqlAlchemyUserRepository._to_domain(record)
+
+        # THEN
+        assert user.created_at == created_at
+
+
+class TestSqlAlchemyUserReader:
+    """Test read-side projection queries."""
+
+    def test_returns_a_purpose_built_read_model(self, session_factory: sessionmaker[Session]):
+        """
+        GIVEN a persisted user aggregate
+        WHEN the read-side adapter queries the user
+        THEN it returns a projection without write-side aggregate events
+        """
+        # GIVEN
+        user = User.register(name="Ada Lovelace", email="ada@example.com")
+        with SqlAlchemyUnitOfWork(session_factory) as uow:
+            uow.users.add(user)
+            uow.commit()
+        reader = SqlAlchemyUserReader(session_factory)
+
+        # WHEN
+        projection = reader.get(user.id)
+
+        # THEN
+        assert projection is not None
+        assert projection.id == user.id
+        assert projection.email == "ada@example.com"
+        assert not hasattr(projection, "events")
+
+    def test_returns_none_for_an_unknown_user(self, session_factory: sessionmaker[Session]):
+        """
+        GIVEN an empty database
+        WHEN the read-side adapter queries an unknown user
+        THEN it returns None
+        """
+        # GIVEN
+        reader = SqlAlchemyUserReader(session_factory)
+
+        # WHEN / THEN
+        assert reader.get(uuid4()) is None

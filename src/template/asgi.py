@@ -6,13 +6,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
+from template.bootstrap import ApplicationContainer, bootstrap
 from template.router import api_router_v1, root_router
 from template.settings.api_settings import ApplicationSettings
 
 log = logging.getLogger(__name__)
 
 
-async def on_startup():
+async def on_startup(app: FastAPI):
     """
     Define FastAPI startup event handler.
 
@@ -20,9 +21,10 @@ async def on_startup():
         1. https://fastapi.tiangolo.com/advanced/events/#startup-event
     """
     log.debug("Execute FastAPI startup event handler.")
+    app.state.container.startup()
 
 
-async def on_shutdown():
+async def on_shutdown(app: FastAPI):
     """
     Define FastAPI shutdown event handler.
 
@@ -30,6 +32,7 @@ async def on_shutdown():
         1. https://fastapi.tiangolo.com/advanced/events/#shutdown-event
     """
     log.debug("Execute FastAPI shutdown event handler.")
+    app.state.container.shutdown()
 
 
 @asynccontextmanager
@@ -45,12 +48,12 @@ async def lifespan(app: FastAPI):
     """
     log.debug("Execute FastAPI lifespan event handler.")
 
-    await on_startup()
+    await on_startup(app)
     yield
-    await on_shutdown()
+    await on_shutdown(app)
 
 
-def get_application() -> FastAPI:
+def get_application(container: ApplicationContainer | None = None) -> FastAPI:
     """
     Initialize FastAPI application.
 
@@ -61,8 +64,8 @@ def get_application() -> FastAPI:
 
     settings = ApplicationSettings()
 
-    license_info: dict[str, str] = settings.PROJECT_LICENSE.model_dump(mode="json")
-    contact_info: dict[str, str] = settings.PROJECT_CONTACT.model_dump(mode="json")
+    license_info = settings.PROJECT_LICENSE.model_dump(mode="json") if settings.PROJECT_LICENSE else None
+    contact_info = settings.PROJECT_CONTACT.model_dump(mode="json") if settings.PROJECT_CONTACT else None
 
     app = FastAPI(
         title=settings.PROJECT_NAME,
@@ -74,6 +77,7 @@ def get_application() -> FastAPI:
         license_info=license_info,
         contact=contact_info,
     )
+    app.state.container = container or bootstrap()
 
     app.add_middleware(
         CORSMiddleware,

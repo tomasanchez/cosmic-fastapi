@@ -1,0 +1,18 @@
+"""Read-side application queries."""
+
+from typing import Protocol
+from uuid import UUID
+
+from template.service_layer.read_models import UserReadModel
+
+
+class UserReader(Protocol):
+    """Describe user lookup behavior required by query consumers."""
+
+    def get(self, user_id: UUID) -> UserReadModel | None:
+        """Return a user read model by identity."""
+
+
+def get_user(user_id: UUID, reader: UserReader) -> UserReadModel | None:
+    """Return a purpose-built user read model."""
+    return reader.get(user_id)

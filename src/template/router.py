@@ -8,7 +8,7 @@ Resources:
 
 from fastapi import APIRouter
 
-from template.entrypoint import monitor
+from template.entrypoint import monitor, users
 
 api_v1_prefix: str = "/api/v1"
 
@@ -19,3 +19,4 @@ api_router_v1: APIRouter = APIRouter(prefix=api_v1_prefix)
 root_router.include_router(monitor.router)
 
 # API routers
+api_router_v1.include_router(users.router)

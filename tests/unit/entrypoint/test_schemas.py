@@ -1,8 +1,6 @@
-"""
-Test suite for Schemas
-"""
+"""Test suite for boundary schemas."""
 
-from template.domain.schemas import CamelCaseModel, ResponseModel
+from template.entrypoint.schemas import CamelCaseModel, ResponseModel
 
 
 class TestSchemas:
@@ -68,7 +66,7 @@ class TestSchemas:
             bar: int
             foo_bar: str
 
-        model = ResponseModel[list[DummyModel]](
+        model = ResponseModel[DummyModel](
             data=[
                 DummyModel(foo="foo", bar=1, foo_bar="foo_bar"),
                 DummyModel(foo="foo", bar=1, foo_bar="foo_bar"),
