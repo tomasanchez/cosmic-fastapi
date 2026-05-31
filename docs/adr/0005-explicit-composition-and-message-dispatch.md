@@ -50,4 +50,3 @@ events provide value.
 - [Cosmic Python: Events and Message Bus](https://www.cosmicpython.com/book/chapter_08_events_and_message_bus.html)
 - [Cosmic Python: Commands](https://www.cosmicpython.com/book/chapter_10_commands.html)
 - [Cosmic Python: Dependency Injection](https://www.cosmicpython.com/book/chapter_13_dependency_injection.html)
-

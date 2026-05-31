@@ -1,6 +1,7 @@
 # ADR 0002: Domain Models Are Framework Independent
 
-- Status: Accepted
+- Status: Superseded
+- Superseded by: [0011](0011-pydantic-message-schemas-with-plain-domain-aggregates.md)
 - Date: 2026-05-31
 
 ## Context
@@ -43,4 +44,3 @@ representation changes explicit.
 
 - [Cosmic Python: Repository Pattern](https://www.cosmicpython.com/book/chapter_02_repository.html)
 - [Python dataclasses](https://docs.python.org/3/library/dataclasses.html)
-

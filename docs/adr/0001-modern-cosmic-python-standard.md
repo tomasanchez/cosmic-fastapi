@@ -30,7 +30,8 @@ We preserve these principles:
 We modernize the implementation:
 
 - FastAPI replaces Flask as the HTTP adapter.
-- Pydantic 2 validates external data and settings, not core domain behavior.
+- Pydantic 2 validates external data, settings, and immutable message schemas,
+  not core domain behavior.
 - SQLAlchemy 2 typed declarative models are persistence adapter details.
 - Alembic versions relational schema changes.
 - uv manages the project environment and lockfile.
@@ -56,4 +57,3 @@ CRUD application, but domain rules remain isolated and tests remain focused.
 
 - [Cosmic Python overview](https://www.cosmicpython.com/book/preface.html)
 - [Cosmic Python architecture summary](https://www.cosmicpython.com/book/appendix_ds1_table.html)
-

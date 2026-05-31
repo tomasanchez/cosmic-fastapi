@@ -60,4 +60,3 @@ change.
 ## References
 
 - [Architecture Decision Records](https://adr.github.io/)
-

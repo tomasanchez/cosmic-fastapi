@@ -49,4 +49,3 @@ dynamic third-party APIs, but improves navigation and refactoring confidence.
 - [Pyrefly installation and CI](https://pyrefly.org/en/docs/installation/)
 - [Pyrefly configuration](https://pyrefly.org/en/docs/configuration/)
 - [Pydantic Pyrefly integration](https://pydantic.dev/docs/validation/latest/integrations/dev-tools/pyrefly/)
-

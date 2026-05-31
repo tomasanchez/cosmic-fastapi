@@ -17,8 +17,13 @@ an ADR, run `make adr-check`.
 
 - Put business behavior, language, and invariants at the center of the design.
 - Keep dependencies pointing inward toward plain Python domain objects.
-- Keep FastAPI, Pydantic, SQLAlchemy, and external clients at system boundaries.
+- Keep FastAPI, SQLAlchemy, and external clients at system boundaries.
+- Use Pydantic deliberately for immutable command and event schemas.
+- Use `snake_case` inside Python and `camelCase` when schemas cross JSON
+  boundaries.
 - Prefer explicit dependencies, small adapters, repositories, and units of work.
+- Treat aggregate roots as consistency boundaries and use purpose-built read
+  models for query paths.
 - Add patterns when the use case needs them. Do not add ceremony merely to fill
   a directory.
 - Keep changes focused. Do not refactor unrelated code while completing a task.
@@ -34,8 +39,8 @@ an ADR, run `make adr-check`.
 - Use `Args:`, `Returns:`, `Raises:`, and `Resources:` sections when relevant.
 - Prefer clear names from the business domain over technical or generic names.
 - Keep comments brief and explain why a non-obvious choice exists.
-- Use Pydantic models for boundary validation and settings, not as a substitute
-  for domain modeling.
+- Use Pydantic models for boundary validation, settings, and immutable command
+  or event schemas, not as a substitute for behavior-rich domain modeling.
 - Keep SQLAlchemy models and session usage inside persistence adapters.
 
 ## Architecture Workflow
@@ -44,15 +49,19 @@ When implementing a feature:
 
 1. Identify the business behavior and invariant.
 2. Model the domain with plain Python objects.
-3. Define boundary schemas for external input and output.
-4. Translate requests into commands or query arguments.
+3. Define frozen Pydantic commands and events when a schema contract helps.
+4. Reuse a command as a boundary schema when contracts match; translate when
+   they differ.
 5. Orchestrate the use case in an application handler.
 6. Access persistence through repositories and a unit of work.
-7. Wire dependencies in the composition root.
-8. Add the smallest useful tests at each affected boundary.
+7. Keep write commands focused on one aggregate root by default.
+8. Use reader ports and read models for query-only paths.
+9. Wire dependencies in the composition root.
+10. Add the smallest useful tests at each affected boundary.
 
 Use domain events for facts that already happened. Use commands for requests to
-perform work. Do not treat API response models as domain events.
+perform work. Do not treat API response models as domain events. Introduce
+versioned integration events before publishing public broker contracts.
 
 ## Testing Style
 

@@ -1,6 +1,7 @@
 # ADR 0003: FastAPI and Pydantic Live at Boundaries
 
-- Status: Accepted
+- Status: Superseded
+- Superseded by: [0011](0011-pydantic-message-schemas-with-plain-domain-aggregates.md)
 - Date: 2026-05-31
 
 ## Context
@@ -46,4 +47,3 @@ required.
 - [FastAPI lifespan events](https://fastapi.tiangolo.com/advanced/events/)
 - [Pydantic models](https://docs.pydantic.dev/latest/concepts/models/)
 - [Pydantic settings](https://docs.pydantic.dev/latest/api/pydantic_settings/)
-

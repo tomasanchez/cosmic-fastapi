@@ -57,4 +57,3 @@ commits are focused and correctly classified.
 
 - [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/)
 - [Semantic Versioning 2.0.0](https://semver.org/)
-

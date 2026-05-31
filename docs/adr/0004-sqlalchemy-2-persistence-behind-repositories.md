@@ -51,4 +51,3 @@ replaced with in-memory fakes in unit tests.
 - [Alembic tutorial](https://alembic.sqlalchemy.org/en/latest/tutorial.html)
 - [Python protocols](https://docs.python.org/3/library/typing.html#typing.Protocol)
 - [Cosmic Python: Unit of Work](https://www.cosmicpython.com/book/chapter_06_uow.html)
-

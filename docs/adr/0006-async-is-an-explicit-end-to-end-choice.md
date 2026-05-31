@@ -43,4 +43,3 @@ through the domain.
 - [FastAPI: async and await](https://fastapi.tiangolo.com/async/)
 - [FastAPI dependencies](https://fastapi.tiangolo.com/tutorial/dependencies/)
 - [SQLAlchemy asyncio extension](https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html)
-
