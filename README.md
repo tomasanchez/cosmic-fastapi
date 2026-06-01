@@ -22,6 +22,8 @@ the [Cosmic Python](https://www.cosmicpython.com/) guidelines.
     * [About](#about)
         * [Features](#features)
         * [Architecture Decision Records](#architecture-decision-records)
+        * [Optional MCP Addon](#optional-mcp-addon)
+        * [Optional Kafka Addon](#optional-kafka-addon)
         * [Project Structure](#project-structure)
             * [Environment Variables](#environment-variables)
         * [Recommended Directory Structure](#recommended-directory-structure)
@@ -64,6 +66,72 @@ Repository-level [agent instructions](AGENTS.md) turn those decisions into an im
 The [Cosmic Python coverage matrix](docs/cosmic-python-coverage.md) distinguishes included patterns from conditional
 extensions such as optimistic locking, broker adapters, and the transactional outbox.
 
+### Optional MCP Addon
+
+Projects with agent clients can install an opt-in [Model Context Protocol](https://modelcontextprotocol.io/) adapter:
+
+```bash
+uv sync --extra mcp
+make mcp
+```
+
+The standalone Streamable HTTP server is available at `http://127.0.0.1:8000/mcp`.
+It demonstrates an intentional primary adapter rather than automatic route exposure:
+
+- `onboard_user` is an MCP tool that dispatches the existing registration command.
+- `users://{user_id}` is an MCP resource backed by the existing CQRS reader.
+- The tool returns the resource URI so an agent can read persisted preferences before later user-specific actions.
+
+The addon is local-only scaffolding until a project defines authentication, authorization, audit logging, and a threat
+review. See [ADR 0015](docs/adr/0015-mcp-is-an-opt-in-primary-adapter.md).
+
+### Optional Kafka Addon
+
+Projects that publish public integration events can install the Kafka addon:
+
+```bash
+uv sync --extra kafka
+make migrate
+make kafka-up
+make kafka-relay
+```
+
+In another terminal, inspect the published events:
+
+```bash
+make kafka-consume
+```
+
+For a local browser-based view of topics, messages, partitions, keys, and
+consumer groups, start the optional [Kafbat UI](https://github.com/kafbat/kafka-ui):
+
+```bash
+make kafka-ui-up
+```
+
+Open `http://localhost:8080` and select the `local` cluster. Stop the UI with:
+
+```bash
+make kafka-ui-down
+```
+
+User registration demonstrates the transactional outbox pattern:
+
+1. The aggregate raises the internal `UserRegistered` domain event.
+2. The SQLAlchemy unit of work stores the user and a versioned `UserRegisteredV1` outbox row in one transaction.
+3. The broker-neutral relay publishes pending rows through the service-layer `IntegrationMessageBus` port.
+4. The opt-in Kafka adapter sends them to the local `users.events` topic.
+5. Kafka messages use `userId` as the key and a camel-case JSON envelope containing `eventId`, `occurredAt`,
+   `eventType`, `schemaVersion`, and `payload`.
+
+Delivery is at least once. Consumers must deduplicate with `eventId`. Docker Compose runs a single-node KRaft broker for
+local development only. Production projects must define security, retention, observability, retry, and dead-letter
+policies. See [ADR 0016](docs/adr/0016-external-message-buses-use-a-transactional-outbox.md).
+
+Kafbat UI is also a local-development convenience. It is pinned to a release
+image, kept outside the Python application, and excluded from the default
+Compose profile.
+
 ### Project Structure
 
 #### Environment Variables
@@ -99,6 +167,16 @@ Variables prefixed with `DATABASE_` configure relational persistence.
 Use Alembic migrations for normal schema management. `DATABASE_AUTO_CREATE_SCHEMA`
 exists for isolated tests and local demonstrations only.
 
+Variables prefixed with `KAFKA_` configure the optional outbox relay.
+
+| Name                    | Description                         | Default Value   |
+|-------------------------|-------------------------------------|-----------------|
+| KAFKA_BOOTSTRAP_SERVERS | Comma-separated Kafka broker list   | localhost:9092  |
+| KAFKA_USER_EVENTS_TOPIC | Topic for public user events        | users.events    |
+| KAFKA_PUBLISH_TIMEOUT   | Publisher acknowledgement timeout   | 10.0            |
+| KAFKA_RELAY_INTERVAL    | Delay between relay polling passes  | 1.0             |
+| KAFKA_BATCH_SIZE        | Maximum events per relay pass       | 100             |
+
 ### Recommended Directory Structure
 
 As the application grows, keep the dependency direction visible in the directory structure. The domain remains plain
@@ -110,6 +188,8 @@ Python. Framework validation belongs at the entrypoint boundary, and persistence
 |-- src/template
 |   |-- adapters                 # (3)
 |   |   |-- models
+|   |   |   `-- outbox.py
+|   |   |-- outbox.py
 |   |   |-- queries.py
 |   |   |-- repository.py
 |   |   `-- unit_of_work.py
@@ -121,6 +201,11 @@ Python. Framework validation belongs at the entrypoint boundary, and persistence
 |   |   |-- monitor.py
 |   |   |-- schemas.py
 |   |   `-- users.py
+|   |-- integration_events
+|   |   `-- user.py
+|   |-- addons                    # (5)
+|   |   |-- kafka
+|   |   `-- mcp
 |   |-- service_layer            # (2)
 |   |   |-- handlers.py
 |   |   |-- messagebus.py
@@ -155,6 +240,10 @@ Python. Framework validation belongs at the entrypoint boundary, and persistence
   inward-facing adapters.
 - **(4)**. Entrypoints are the places we drive our application from. FastAPI routes and Pydantic request or response
   schemas live here. In ports and adapters terminology, these are primary or driving adapters.
+- **(5)**. Addons are optional primary adapters for selected projects. The MCP addon exposes agent-oriented tools and
+  resources through the same application ports without becoming a default runtime dependency. The Kafka addon is an
+  optional secondary adapter implementing the broker-neutral `IntegrationMessageBus` port. The service layer relays
+  public events from the transactional outbox without depending on Kafka.
 
 The root `bootstrap.py` module is the composition root. It wires concrete adapters to application ports without leaking
 framework concerns into the domain.
@@ -381,6 +470,7 @@ make cover
 - [FastAPI official Documentation](https://fastapi.tiangolo.com/)
 - [Pydantic official Documentation](https://pydantic-docs.helpmanual.io/)
 - [UV official Documentation](https://docs.astral.sh/uv/)
+- [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk)
 - [Cosmic Python](https://cosmicpython.com/)
 
 ## Licence

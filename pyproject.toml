@@ -14,6 +14,14 @@ dependencies = [
     "alembic>=1.16.2",
 ]
 
+[project.optional-dependencies]
+mcp = [
+    "mcp>=1.27.2",
+]
+kafka = [
+    "confluent-kafka>=2.14.0",
+]
+
 [dependency-groups]
 dev = [
     "pytest>=8.4.0",
@@ -85,7 +93,7 @@ known-first-party = ["template"]
 
 [tool.coverage.run]
 branch = true
-omit = ['tests/*', 'src/template/asgi.py', 'src/**/__init__.py']
+omit = ['tests/*', 'src/template/asgi.py', 'src/template/addons/mcp/server.py', 'src/template/addons/kafka/worker.py', 'src/**/__init__.py']
 
 [tool.coverage.report]
 show_missing = true

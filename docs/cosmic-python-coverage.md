@@ -21,6 +21,8 @@ every generated project.
 | Dependency injection | Explicit `bootstrap.py` composition root |
 | HTTP entrypoint | Thin FastAPI routes that dispatch commands or query readers |
 | Schema management | Alembic migrations |
+| Agent entrypoint | Opt-in MCP tool and resource addon using the same application ports |
+| External message bus | Broker-neutral `IntegrationMessageBus` port with an opt-in Kafka adapter and transactional outbox |
 
 ## Conditional Extensions
 
@@ -29,12 +31,11 @@ Add these patterns when a concrete use case requires them:
 | Pattern | Introduce when |
 | --- | --- |
 | Optimistic locking | Mutable aggregates can receive competing writes |
-| Versioned integration events | Broker payloads become public contracts |
-| Transactional outbox | Database commits and broker publication must be reliable together |
-| Broker consumer and publisher adapters | A project selects Kafka, RabbitMQ, SQS, or another transport |
+| Broker consumer adapter | A concrete downstream use case consumes Kafka, RabbitMQ, SQS, or another transport |
 | Idempotency storage | Commands or events can be delivered more than once |
 | Process manager or saga | A durable workflow spans aggregate boundaries |
 | Separate read projection store | Query scale, latency, or ownership differs from the write model |
+| Remote MCP exposure | Authentication, authorization, audit logging, and threat review are defined |
 
 ## Deliberate Non-Defaults
 

@@ -5,15 +5,18 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import DateTime, create_engine
+from sqlalchemy import DateTime, create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from template.adapters.models.base import Base
+from template.adapters.models.outbox import OutboxRecord
 from template.adapters.models.user import UserRecord
+from template.adapters.outbox import stage_integration_event
 from template.adapters.queries import SqlAlchemyUserReader
 from template.adapters.repository import SqlAlchemyUserRepository
 from template.adapters.unit_of_work import SqlAlchemyUnitOfWork
+from template.domain.messages import Event
 from template.domain.models.user import User
 from template.service_layer.unit_of_work import IntegrityConflict
 
@@ -48,6 +51,66 @@ class TestSqlAlchemyUnitOfWork:
         with SqlAlchemyUnitOfWork(session_factory) as uow:
             loaded_user = uow.users.get(user.id)
         assert loaded_user == user
+
+    def test_stages_a_versioned_outbox_event_with_the_user(self, session_factory: sessionmaker[Session]):
+        """
+        GIVEN a new user aggregate with a domain event
+        WHEN the unit of work commits the user
+        THEN a camel-case public integration event is stored in the same transaction
+        """
+        # GIVEN
+        user = User.register(name="Ada Lovelace", email="ada@example.com")
+
+        # WHEN
+        with SqlAlchemyUnitOfWork(session_factory) as uow:
+            uow.users.add(user)
+            uow.commit()
+
+        # THEN
+        with session_factory() as session:
+            record = session.scalar(select(OutboxRecord))
+        assert record is not None
+        assert record.aggregate_id == str(user.id)
+        assert record.event_type == "user.registered"
+        assert record.payload["schemaVersion"] == 1
+        assert record.payload["payload"] == {"userId": str(user.id), "email": "ada@example.com"}
+
+    def test_does_not_duplicate_staged_events_on_repeated_commit(self, session_factory: sessionmaker[Session]):
+        """
+        GIVEN a unit of work with one new user event
+        WHEN the transaction is committed more than once
+        THEN the event is staged once
+        """
+        # GIVEN
+        user = User.register(name="Ada Lovelace", email="ada@example.com")
+
+        # WHEN
+        with SqlAlchemyUnitOfWork(session_factory) as uow:
+            uow.users.add(user)
+            uow.commit()
+            uow.commit()
+
+        # THEN
+        with session_factory() as session:
+            assert len(list(session.scalars(select(OutboxRecord)))) == 1
+
+    def test_does_not_stage_domain_events_without_a_public_contract(self, session_factory: sessionmaker[Session]):
+        """
+        GIVEN an internal domain event without an integration contract
+        WHEN the outbox adapter considers the event
+        THEN no public outbox row is staged
+        """
+        # GIVEN
+        event = Event()
+
+        # WHEN
+        with session_factory() as session:
+            stage_integration_event(session, event)
+            session.commit()
+
+        # THEN
+        with session_factory() as session:
+            assert session.scalar(select(OutboxRecord)) is None
 
     def test_rolls_back_uncommitted_work(self, session_factory: sessionmaker[Session]):
         """

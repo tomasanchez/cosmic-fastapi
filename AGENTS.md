@@ -28,6 +28,8 @@ an ADR, run `make adr-check`.
   a directory.
 - Keep changes focused. Do not refactor unrelated code while completing a task.
 - Record a new ADR when changing a project-wide architectural default.
+- Treat MCP as an opt-in primary adapter. Expose selected use cases, not every HTTP route.
+- Publish external events through a transactional outbox. Assume at-least-once delivery and require idempotent consumers.
 
 ## Python Style
 
@@ -58,6 +60,18 @@ When implementing a feature:
 8. Use reader ports and read models for query-only paths.
 9. Wire dependencies in the composition root.
 10. Add the smallest useful tests at each affected boundary.
+
+When adding MCP tools or resources, call application handlers and query
+services through the composition root. Do not call HTTP routes or SQLAlchemy
+sessions from an MCP adapter. Define authentication, authorization, audit
+logging, and a threat review before enabling remote MCP access.
+
+When publishing to Kafka or another broker, depend on the service-layer
+`IntegrationMessageBus` port. Translate domain events into
+versioned integration events and persist them to the transactional outbox with
+the aggregate change. Relay them outside the write transaction. Document
+consumer idempotency, retries, dead-letter handling, retention, and
+observability before production deployment.
 
 Use domain events for facts that already happened. Use commands for requests to
 perform work. Do not treat API response models as domain events. Introduce

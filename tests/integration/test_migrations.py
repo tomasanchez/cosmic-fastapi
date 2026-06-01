@@ -28,4 +28,5 @@ class TestMigrations:
         # THEN
         tables = inspect(create_engine(database_url)).get_table_names()
         assert "alembic_version" in tables
+        assert "outbox_events" in tables
         assert "users" in tables

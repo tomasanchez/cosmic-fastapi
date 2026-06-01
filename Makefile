@@ -45,9 +45,33 @@ adr-context: ## Prints active architecture guidance for agents
 migrate: ## Applies relational database migrations
 	uv run alembic upgrade head
 
+.PHONY: mcp
+mcp: ## Runs the optional MCP addon over Streamable HTTP
+	uv run --extra mcp python -m template.addons.mcp.server
+
+.PHONY: kafka-up
+kafka-up: ## Starts the local Kafka broker
+	docker compose up -d kafka
+
+.PHONY: kafka-relay
+kafka-relay: ## Relays transactional outbox events to Kafka
+	uv run --extra kafka python -m template.addons.kafka.worker
+
+.PHONY: kafka-consume
+kafka-consume: ## Prints local user integration events from Kafka
+	docker compose exec kafka kafka-console-consumer --bootstrap-server kafka:29092 --topic users.events --from-beginning
+
+.PHONY: kafka-ui-up
+kafka-ui-up: ## Starts local Kafka with the optional Kafbat UI
+	docker compose --profile observability up -d kafbat-ui
+
+.PHONY: kafka-ui-down
+kafka-ui-down: ## Stops the optional Kafbat UI
+	docker compose --profile observability stop kafbat-ui
+
 .PHONY: cover
 cover: ## Executes tests cases with coverage reports
-	uv run pytest --cov src/template --cov-fail-under=100 --junitxml reports/xunit.xml \
+	uv run --extra mcp --extra kafka pytest --cov src/template --cov-fail-under=100 --junitxml reports/xunit.xml \
 	--cov-report xml:reports/coverage.xml --cov-report term-missing
 
 .PHONY: format
@@ -62,7 +86,7 @@ pre-commit: ## Runs pre-commit hooks on all files
 lint: ## Applies static analysis and type checks
 	uv run ruff check ./src ./tests ./scripts ./migrations
 	uv run ruff format --check ./src ./tests ./scripts ./migrations
-	uv run pyrefly check
+	uv run --extra mcp --extra kafka pyrefly check
 
 .PHONY: fix
 fix:  ## Fix lint errors

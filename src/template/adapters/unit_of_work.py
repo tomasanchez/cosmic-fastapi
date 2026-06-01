@@ -7,6 +7,7 @@ from types import TracebackType
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
+from template.adapters.outbox import stage_integration_event
 from template.adapters.repository import SqlAlchemyUserRepository
 from template.service_layer.unit_of_work import AbstractUnitOfWork, IntegrityConflict
 
@@ -21,6 +22,7 @@ class SqlAlchemyUnitOfWork(AbstractUnitOfWork):
             session_factory: Factory used to create a SQLAlchemy session.
         """
         self.session_factory = session_factory
+        self.staged_event_ids: set[int] = set()
 
     def __enter__(self) -> SqlAlchemyUnitOfWork:
         """Open a session and repositories."""
@@ -41,6 +43,11 @@ class SqlAlchemyUnitOfWork(AbstractUnitOfWork):
     def commit(self) -> None:
         """Commit the SQLAlchemy transaction."""
         try:
+            for user in self.users.seen:
+                for event in user.events:
+                    if id(event) not in self.staged_event_ids:
+                        stage_integration_event(self.session, event)
+                        self.staged_event_ids.add(id(event))
             self.session.commit()
         except IntegrityError as error:
             raise IntegrityConflict from error
