@@ -33,6 +33,8 @@ treated as migration work, not as a precedent to repeat.
 | [0012](0012-camel-case-json-message-contracts.md) | Camel-Case JSON Message Contracts | Accepted |
 | [0013](0013-aggregates-define-consistency-boundaries.md) | Aggregates Define Consistency Boundaries | Accepted |
 | [0014](0014-cqrs-read-models-are-purpose-built.md) | CQRS Read Models Are Purpose Built | Accepted |
+| [0015](0015-mcp-is-an-opt-in-primary-adapter.md) | MCP Is an Opt-In Primary Adapter | Accepted |
+| [0016](0016-external-message-buses-use-a-transactional-outbox.md) | External Message Buses Use a Transactional Outbox | Accepted |
 
 ## Agent Checklist
 
@@ -51,6 +53,8 @@ Before writing code:
 11. Add integration tests where adapters meet real infrastructure.
 12. Record a new ADR when changing an accepted default.
 13. Use Conventional Commits when creating Git history.
+14. Add MCP as an opt-in primary adapter only when agents are application clients.
+15. Publish Kafka events through a transactional outbox and require idempotent consumers.
 
 ## Decision Pruner
 

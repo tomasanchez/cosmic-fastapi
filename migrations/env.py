@@ -6,6 +6,7 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from template.adapters.models.base import Base
+from template.adapters.models.outbox import OutboxRecord  # noqa: F401
 from template.adapters.models.user import UserRecord  # noqa: F401
 from template.settings.database_settings import DatabaseSettings
 
