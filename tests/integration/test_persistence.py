@@ -119,6 +119,55 @@ class TestSqlAlchemyUnitOfWork:
         assert isinstance(column_type, DateTime)
         assert column_type.timezone is True
 
+    def test_persists_mutations_to_loaded_aggregates(self, session_factory: sessionmaker[Session]):
+        """
+        GIVEN a persisted user loaded through a fresh unit of work
+        WHEN the loaded aggregate is mutated and committed
+        THEN a later unit of work observes the mutated state
+
+        This guards against the silent data loss that the translation pattern
+        causes: a loaded aggregate is detached from SQLAlchemy change tracking,
+        so its mutations must be written back explicitly on commit.
+        """
+        # GIVEN
+        user = User.register(name="Ada Lovelace", email="ada@example.com")
+        with SqlAlchemyUnitOfWork(session_factory) as uow:
+            uow.users.add(user)
+            uow.commit()
+
+        # WHEN
+        with SqlAlchemyUnitOfWork(session_factory) as uow:
+            loaded_user = uow.users.get(user.id)
+            assert loaded_user is not None
+            loaded_user.deactivate()
+            uow.commit()
+
+        # THEN
+        with SqlAlchemyUnitOfWork(session_factory) as uow:
+            reloaded_user = uow.users.get(user.id)
+        assert reloaded_user is not None
+        assert reloaded_user.is_active is False
+
+    def test_returns_the_same_instance_for_a_re_loaded_aggregate(self, session_factory: sessionmaker[Session]):
+        """
+        GIVEN a persisted user
+        WHEN the same identity is loaded twice within one unit of work
+        THEN the repository returns the identical tracked instance
+        """
+        # GIVEN
+        user = User.register(name="Ada Lovelace", email="ada@example.com")
+        with SqlAlchemyUnitOfWork(session_factory) as uow:
+            uow.users.add(user)
+            uow.commit()
+
+        # WHEN / THEN
+        with SqlAlchemyUnitOfWork(session_factory) as uow:
+            first = uow.users.get(user.id)
+            by_email = uow.users.get_by_email("ada@example.com")
+            second = uow.users.get(user.id)
+        assert first is second
+        assert by_email is first
+
     def test_translates_integrity_errors(self, session_factory: sessionmaker[Session]):
         """
         GIVEN two users with the same globally unique email

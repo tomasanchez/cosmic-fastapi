@@ -2,14 +2,16 @@
 
 from functools import partial
 from unittest.mock import patch
+from uuid import uuid4
 
 import pytest
 
-from template.domain.commands.user import RegisterUser
+from template.domain.commands.user import DeactivateUser, RegisterUser
 from template.domain.events.user import UserRegistered
 from template.domain.messages import Message
 from template.service_layer.handlers import publish_user_registered, register_user
-from template.service_layer.messagebus import MessageBus
+from template.service_layer.messagebus import MessageBus, UnhandledCommand
+from template.service_layer.unit_of_work import AbstractUnitOfWork
 from tests.unit.service_layer.test_handlers import FakeUnitOfWork
 
 
@@ -76,3 +78,45 @@ class TestMessageBus:
         # WHEN / THEN
         with pytest.raises(TypeError, match="Unsupported message type"):
             bus.handle(Message())
+
+    def test_rejects_commands_without_a_registered_handler(self):
+        """
+        GIVEN a message bus with no handler for a command type
+        WHEN that command is dispatched
+        THEN the bus raises an explicit unhandled-command error
+        """
+        # GIVEN
+        bus = MessageBus(uow_factory=FakeUnitOfWork, command_handlers={}, event_handlers={})
+
+        # WHEN / THEN
+        with pytest.raises(UnhandledCommand, match="DeactivateUser"):
+            bus.handle(DeactivateUser(user_id=uuid4()))
+
+
+class TestUnitOfWorkEventCollection:
+    """Test event collection on the abstract unit of work."""
+
+    def test_yields_nothing_when_never_entered(self):
+        """
+        GIVEN a unit of work that was never entered and has no repository
+        WHEN events are collected
+        THEN the collection yields nothing instead of raising
+        """
+
+        # GIVEN
+        class NeverEnteredUnitOfWork(AbstractUnitOfWork):
+            """A unit of work whose repository is only created on __enter__."""
+
+            def commit(self) -> None:
+                """Do nothing."""
+
+            def rollback(self) -> None:
+                """Do nothing."""
+
+        uow = NeverEnteredUnitOfWork()
+
+        # WHEN
+        events = list(uow.collect_new_events())
+
+        # THEN
+        assert events == []

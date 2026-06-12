@@ -34,3 +34,9 @@ class RegisterUser(Command):
     email: EmailStr
     settings: RegisterUserSettings = Field(default_factory=RegisterUserSettings)
     user_id: UUID = Field(default_factory=uuid4)
+
+
+class DeactivateUser(Command):
+    """Request deactivation of one user."""
+
+    user_id: UUID

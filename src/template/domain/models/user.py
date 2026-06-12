@@ -7,7 +7,8 @@ from datetime import UTC, datetime
 from typing import Literal
 from uuid import UUID, uuid4
 
-from template.domain.events.user import UserRegistered
+from template.domain.events.user import UserDeactivated, UserRegistered
+from template.domain.messages import Event
 
 
 @dataclass(frozen=True)
@@ -30,7 +31,7 @@ class User:
     id: UUID = field(default_factory=uuid4)
     is_active: bool = True
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
-    events: list[UserRegistered] = field(default_factory=list, compare=False)
+    events: list[Event] = field(default_factory=list, compare=False)
 
     @classmethod
     def register(
@@ -59,3 +60,14 @@ class User:
         )
         user.events.append(UserRegistered(user_id=user.id, email=user.email))
         return user
+
+    def deactivate(self) -> None:
+        """Deactivate the user and record the resulting domain event.
+
+        Deactivation is idempotent: deactivating an already-inactive user
+        leaves the aggregate unchanged and records no further event.
+        """
+        if not self.is_active:
+            return
+        self.is_active = False
+        self.events.append(UserDeactivated(user_id=self.id))

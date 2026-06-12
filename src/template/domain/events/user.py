@@ -10,3 +10,9 @@ class UserRegistered(Event):
 
     user_id: UUID
     email: str
+
+
+class UserDeactivated(Event):
+    """Record that a user was deactivated."""
+
+    user_id: UUID

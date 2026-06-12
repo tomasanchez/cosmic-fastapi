@@ -41,7 +41,14 @@ class AbstractUnitOfWork(ABC):
         """Roll back the current transaction."""
 
     def collect_new_events(self) -> Iterator[Event]:
-        """Yield pending events from aggregates seen in this transaction."""
-        for user in self.users.seen:
+        """Yield pending events from aggregates seen in this transaction.
+
+        A unit of work that was never entered has no repository; in that case
+        no aggregate was seen and the iterator yields nothing.
+        """
+        users = getattr(self, "users", None)
+        if users is None:
+            return
+        for user in users.seen.values():
             while user.events:
                 yield user.events.pop(0)
