@@ -1,18 +1,47 @@
 """Test suite for internal message dispatch."""
 
-from functools import partial
+from collections.abc import Iterator
 from unittest.mock import patch
-from uuid import uuid4
 
 import pytest
 
-from {{ package_name }}.domain.commands.user import DeactivateUser, RegisterUser
-from {{ package_name }}.domain.events.user import UserRegistered
-from {{ package_name }}.domain.messages import Message
-from {{ package_name }}.service_layer.handlers import publish_user_registered, register_user
+from {{ package_name }}.domain.messages import Command, Event, Message
 from {{ package_name }}.service_layer.messagebus import MessageBus, UnhandledCommand
 from {{ package_name }}.service_layer.unit_of_work import AbstractUnitOfWork
-from tests.unit.service_layer.test_handlers import FakeUnitOfWork
+
+
+class _SampleCommand(Command):
+    """A sample command used to drive the message bus under test."""
+
+    label: str
+
+
+class _SampleEvent(Event):
+    """A sample event raised while handling the sample command."""
+
+    label: str
+
+
+class _StubUnitOfWork(AbstractUnitOfWork):
+    """A unit of work that surfaces a fixed set of collected events."""
+
+    def __init__(self, events: list[Event] | None = None):
+        """Initialize the stub with the events to drain after a command."""
+        self._events = events or []
+        self.committed = False
+        self.rolled_back = False
+
+    def commit(self) -> None:
+        """Record a commit."""
+        self.committed = True
+
+    def rollback(self) -> None:
+        """Record a rollback."""
+        self.rolled_back = True
+
+    def collect_new_events(self) -> Iterator[Event]:
+        """Yield the events queued for this transaction."""
+        yield from self._events
 
 
 class TestMessageBus:
@@ -20,26 +49,29 @@ class TestMessageBus:
 
     def test_dispatches_events_raised_by_command_handlers(self):
         """
-        GIVEN a message bus with registration and publication handlers
-        WHEN a registration command is dispatched
-        THEN the resulting domain event is published
+        GIVEN a message bus whose command handler raises a domain event
+        WHEN the command is dispatched
+        THEN the resulting domain event reaches its registered handler
         """
         # GIVEN
-        published: list[UserRegistered] = []
-        uow = FakeUnitOfWork()
+        event = _SampleEvent(label="raised")
+        published: list[_SampleEvent] = []
+
+        def handle_command(command: _SampleCommand, uow: AbstractUnitOfWork) -> str:
+            return command.label
+
         bus = MessageBus(
-            uow_factory=lambda: uow,
-            command_handlers={RegisterUser: register_user},
-            event_handlers={UserRegistered: [partial(publish_user_registered, publish=published.append)]},
+            uow_factory=lambda: _StubUnitOfWork([event]),
+            command_handlers={_SampleCommand: handle_command},
+            event_handlers={_SampleEvent: [published.append]},
         )
 
         # WHEN
-        command = RegisterUser(name="Ada Lovelace", email="ada@example.com")
-        user_id = bus.handle(command)
+        result = bus.handle(_SampleCommand(label="ok"))
 
         # THEN
-        assert user_id == command.user_id
-        assert published == [UserRegistered(user_id=command.user_id, email="ada@example.com")]
+        assert result == "ok"
+        assert published == [event]
 
     def test_logs_event_handler_failures_and_continues(self):
         """
@@ -49,21 +81,24 @@ class TestMessageBus:
         """
 
         # GIVEN
-        def fail_to_publish(event: UserRegistered) -> None:
-            raise RuntimeError(event.email)
+        def handle_command(command: _SampleCommand, uow: AbstractUnitOfWork) -> str:
+            return command.label
+
+        def fail_to_publish(event: _SampleEvent) -> None:
+            raise RuntimeError(event.label)
 
         bus = MessageBus(
-            uow_factory=FakeUnitOfWork,
-            command_handlers={RegisterUser: register_user},
-            event_handlers={UserRegistered: [fail_to_publish]},
+            uow_factory=lambda: _StubUnitOfWork([_SampleEvent(label="boom")]),
+            command_handlers={_SampleCommand: handle_command},
+            event_handlers={_SampleEvent: [fail_to_publish]},
         )
 
         # WHEN
         with patch("{{ package_name }}.service_layer.messagebus.log.exception") as log_exception:
-            user_id = bus.handle(RegisterUser(name="Ada Lovelace", email="ada@example.com"))
+            result = bus.handle(_SampleCommand(label="ok"))
 
         # THEN
-        assert user_id is not None
+        assert result == "ok"
         log_exception.assert_called_once()
 
     def test_rejects_messages_without_command_or_event_semantics(self):
@@ -73,7 +108,7 @@ class TestMessageBus:
         THEN the unsupported message is rejected
         """
         # GIVEN
-        bus = MessageBus(uow_factory=FakeUnitOfWork, command_handlers={}, event_handlers={})
+        bus = MessageBus(uow_factory=_StubUnitOfWork, command_handlers={}, event_handlers={})
 
         # WHEN / THEN
         with pytest.raises(TypeError, match="Unsupported message type"):
@@ -86,26 +121,26 @@ class TestMessageBus:
         THEN the bus raises an explicit unhandled-command error
         """
         # GIVEN
-        bus = MessageBus(uow_factory=FakeUnitOfWork, command_handlers={}, event_handlers={})
+        bus = MessageBus(uow_factory=_StubUnitOfWork, command_handlers={}, event_handlers={})
 
         # WHEN / THEN
-        with pytest.raises(UnhandledCommand, match="DeactivateUser"):
-            bus.handle(DeactivateUser(user_id=uuid4()))
+        with pytest.raises(UnhandledCommand, match="_SampleCommand"):
+            bus.handle(_SampleCommand(label="ok"))
 
 
 class TestUnitOfWorkEventCollection:
     """Test event collection on the abstract unit of work."""
 
-    def test_yields_nothing_when_never_entered(self):
+    def test_yields_nothing_for_a_transaction_without_aggregates(self):
         """
-        GIVEN a unit of work that was never entered and has no repository
+        GIVEN a unit of work that tracked no aggregates
         WHEN events are collected
         THEN the collection yields nothing instead of raising
         """
 
         # GIVEN
-        class NeverEnteredUnitOfWork(AbstractUnitOfWork):
-            """A unit of work whose repository is only created on __enter__."""
+        class _EmptyUnitOfWork(AbstractUnitOfWork):
+            """A unit of work that tracks no aggregates."""
 
             def commit(self) -> None:
                 """Do nothing."""
@@ -113,7 +148,7 @@ class TestUnitOfWorkEventCollection:
             def rollback(self) -> None:
                 """Do nothing."""
 
-        uow = NeverEnteredUnitOfWork()
+        uow = _EmptyUnitOfWork()
 
         # WHEN
         events = list(uow.collect_new_events())

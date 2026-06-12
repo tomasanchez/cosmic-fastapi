@@ -96,7 +96,9 @@ uv run pytest
 
 The bake-test ([`tests/test_bake.py`](tests/test_bake.py)) snapshots the tracked working tree, renders it with
 a sample answer set, then runs `uv sync`, `ruff check`, `pyrefly check`, and `pytest --cov src` inside the
-baked project, asserting 100% coverage. The same bake runs in CI via
+baked project, asserting 100% coverage. It is parametrized over the `include_user_example` feature flag, so
+both the default (User example on) and the monitor-only baseline (User example off) are validated on every
+run. The same bake matrix runs in CI via
 [`.github/workflows/template-ci.yml`](.github/workflows/template-ci.yml).
 
 ## Acknowledgements

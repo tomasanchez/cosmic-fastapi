@@ -1,6 +1,9 @@
 # Template repository CI: bake the Copier template and run the generated
-# project's full quality gate (Ruff, Pyrefly, pytest at 100% coverage).
-# The generated project ships its own workflow at template/.github/workflows/build.yml.
+# project's full quality gate (Ruff, Pyrefly, pytest at 100% coverage) across
+# the feature-flag matrix. The parametrized bake-test in tests/test_bake.py
+# renders the template with include_user_example both on and off, so a single
+# pytest run validates every variant. The generated project ships its own
+# workflow at template/.github/workflows/build.yml.
 
 name: Template CI
 

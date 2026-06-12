@@ -4,6 +4,9 @@ The template repository cannot import its own package in place once the package
 path contains Jinja. Instead we *bake* the template: render it to a temporary
 directory with a sample answer set and run the generated project's full quality
 gate (Ruff, Pyrefly, pytest at 100% coverage).
+
+The bake runs across the feature-flag matrix so both the default
+``include_user_example`` slice and the monitor-only baseline are validated.
 """
 
 from __future__ import annotations
@@ -18,7 +21,7 @@ import pytest
 
 TEMPLATE_ROOT = Path(__file__).resolve().parent.parent
 
-SAMPLE_ANSWERS: dict[str, object] = {
+BASE_ANSWERS: dict[str, object] = {
     "project_name": "Demo Service",
     "project_slug": "demo-service",
     "package_name": "demo_service",
@@ -30,8 +33,13 @@ SAMPLE_ANSWERS: dict[str, object] = {
     "license": "MIT",
     "python_version": "3.13",
     "database_url": "sqlite+pysqlite:///./demo-service.db",
-    "include_user_example": True,
 }
+
+# The feature-flag matrix: each entry is a (test id, include_user_example) pair.
+FEATURE_FLAG_MATRIX = [
+    pytest.param(True, id="user-example-on"),
+    pytest.param(False, id="user-example-off"),
+]
 
 
 def _run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
@@ -68,17 +76,27 @@ def _snapshot_working_tree(dst: Path) -> Path:
 
 
 @pytest.fixture(scope="module")
-def baked_project(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """GIVEN the template, render it once with the sample answers.
+def template_source(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Snapshot the tracked working tree once for the whole module."""
+    return _snapshot_working_tree(tmp_path_factory.mktemp("template-src"))
+
+
+@pytest.fixture(params=FEATURE_FLAG_MATRIX)
+def baked_project(
+    request: pytest.FixtureRequest,
+    template_source: Path,
+    tmp_path_factory: pytest.TempPathFactory,
+) -> Path:
+    """GIVEN the template, render it for each feature-flag combination.
 
     `unsafe=True` is required so Copier executes the `_tasks` entry (`uv lock`).
     """
-    src = _snapshot_working_tree(tmp_path_factory.mktemp("template-src"))
+    include_user_example: bool = request.param
     dst = tmp_path_factory.mktemp("baked")
     copier.run_copy(
-        str(src),
+        str(template_source),
         str(dst),
-        data=SAMPLE_ANSWERS,
+        data={**BASE_ANSWERS, "include_user_example": include_user_example},
         defaults=True,
         unsafe=True,
         quiet=True,
@@ -104,6 +122,30 @@ def test_no_template_package_references(baked_project: Path) -> None:
     assert not offenders, f"stale template imports: {offenders}"
 
 
+@pytest.mark.parametrize("include_user_example", FEATURE_FLAG_MATRIX)
+def test_user_slice_presence_matches_flag(
+    template_source: Path,
+    tmp_path_factory: pytest.TempPathFactory,
+    include_user_example: bool,
+) -> None:
+    """WHEN baked THEN the user example slice is present only when the flag is on."""
+    dst = tmp_path_factory.mktemp("baked-flag")
+    copier.run_copy(
+        str(template_source),
+        str(dst),
+        data={**BASE_ANSWERS, "include_user_example": include_user_example},
+        defaults=True,
+        unsafe=True,
+        quiet=True,
+    )
+    user_model = dst / "src" / "demo_service" / "domain" / "models" / "user.py"
+    user_router = dst / "src" / "demo_service" / "entrypoint" / "users.py"
+    user_migration = dst / "migrations" / "versions" / "20260531_0001_create_users.py"
+    assert user_model.exists() is include_user_example
+    assert user_router.exists() is include_user_example
+    assert user_migration.exists() is include_user_example
+
+
 def test_baked_project_passes_quality_gate(baked_project: Path) -> None:
     """WHEN the baked project is synced THEN ruff, pyrefly and pytest all pass at 100%."""
     sync = _run(["uv", "sync"], baked_project)
@@ -111,6 +153,10 @@ def test_baked_project_passes_quality_gate(baked_project: Path) -> None:
 
     ruff = _run(["uv", "run", "ruff", "check", "."], baked_project)
     assert ruff.returncode == 0, f"ruff failed:\n{ruff.stdout}\n{ruff.stderr}"
+
+    # Mirror the generated project's `make lint`, which also enforces formatting.
+    ruff_format = _run(["uv", "run", "ruff", "format", "--check", "."], baked_project)
+    assert ruff_format.returncode == 0, f"ruff format failed:\n{ruff_format.stdout}\n{ruff_format.stderr}"
 
     pyrefly = _run(["uv", "run", "pyrefly", "check"], baked_project)
     assert pyrefly.returncode == 0, f"pyrefly failed:\n{pyrefly.stdout}\n{pyrefly.stderr}"

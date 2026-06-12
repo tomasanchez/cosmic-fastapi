@@ -12,15 +12,22 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from {{ package_name }}.adapters.models.base import Base
+{%- if include_user_example %}
 from {{ package_name }}.adapters.queries import SqlAlchemyUserReader
+{%- endif %}
 from {{ package_name }}.adapters.unit_of_work import SqlAlchemyUnitOfWork
+{%- if include_user_example %}
 from {{ package_name }}.domain.commands.user import DeactivateUser, RegisterUser
 from {{ package_name }}.domain.events.user import UserDeactivated, UserRegistered
 from {{ package_name }}.service_layer import handlers
+{%- endif %}
 from {{ package_name }}.service_layer.messagebus import MessageBus
+{%- if include_user_example %}
 from {{ package_name }}.service_layer.queries import UserReader
+{%- endif %}
 from {{ package_name }}.service_layer.unit_of_work import AbstractUnitOfWork
 from {{ package_name }}.settings.database_settings import DatabaseSettings
+{%- if include_user_example %}
 
 
 def _ignore_user_registered(event: UserRegistered) -> None:
@@ -29,6 +36,7 @@ def _ignore_user_registered(event: UserRegistered) -> None:
 
 def _ignore_user_deactivated(event: UserDeactivated) -> None:
     """Provide a default no-op external event publisher."""
+{%- endif %}
 
 
 @dataclass
@@ -38,9 +46,11 @@ class ApplicationContainer:
     engine: Engine
     session_factory: sessionmaker[Session]
     uow_factory: Callable[[], AbstractUnitOfWork]
-    user_reader: UserReader
     bus: MessageBus
     auto_create_schema: bool
+{%- if include_user_example %}
+    user_reader: UserReader
+{%- endif %}
 
     def startup(self) -> None:
         """Initialize resources required by the running application."""
@@ -54,13 +64,17 @@ class ApplicationContainer:
 
 def bootstrap(
     database_settings: DatabaseSettings | None = None,
+{%- if include_user_example %}
     publish: Callable[[UserRegistered], None] = _ignore_user_registered,
+{%- endif %}
 ) -> ApplicationContainer:
     """Build application dependencies.
 
     Args:
         database_settings: Optional database configuration override.
+{%- if include_user_example %}
         publish: External user-registration event publisher.
+{%- endif %}
 
     Returns:
         A configured application container.
@@ -76,6 +90,7 @@ def bootstrap(
     engine = create_engine(settings.URL, **engine_options)
     session_factory = sessionmaker(bind=engine, expire_on_commit=False)
     uow_factory = partial(SqlAlchemyUnitOfWork, session_factory)
+{%- if include_user_example %}
     user_reader = SqlAlchemyUserReader(session_factory)
     bus = MessageBus(
         uow_factory=uow_factory,
@@ -88,11 +103,16 @@ def bootstrap(
             UserDeactivated: [partial(handlers.publish_user_deactivated, publish=_ignore_user_deactivated)],
         },
     )
+{%- else %}
+    bus = MessageBus(uow_factory=uow_factory, command_handlers={}, event_handlers={})
+{%- endif %}
     return ApplicationContainer(
         engine=engine,
         session_factory=session_factory,
         uow_factory=uow_factory,
-        user_reader=user_reader,
         bus=bus,
         auto_create_schema=settings.AUTO_CREATE_SCHEMA,
+{%- if include_user_example %}
+        user_reader=user_reader,
+{%- endif %}
     )
