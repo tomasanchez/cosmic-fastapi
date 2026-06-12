@@ -4,7 +4,7 @@ version = "1.0.0"
 description = ""
 authors = [{ name = "Tomas Sanchez", email = "info@tomsanchez.com.ar" }]
 readme = "README.md"
-requires-python = ">=3.10,<4.0"
+requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.115.0",
     "uvicorn>=0.34.0",
@@ -21,7 +21,7 @@ dev = [
     "pre-commit>=4.2.0",
     "httpx>=0.28.0",
     "pytest-cov>=6.2.0",
-    "ruff",
+    "ruff>=0.12,<0.13",
     "pyrefly>=1.0.0",
 ]
 
@@ -31,7 +31,6 @@ build-backend = "hatchling.build"
 
 [tool.ruff]
 line-length = 120
-target-version = "py311"
 
 [tool.ruff.lint]
 select = [
@@ -66,11 +65,8 @@ select = [
     # tryceratops
     "TRY",
 ]
-# Some pydocstyle rules are disabled because they are often too verbose.
+# Disable rules that are too noisy for this scaffold.
 ignore = [
-    "D100",
-    "D104",
-    "D107",
     # LineTooLong
     "E501",
     # DoNotAssignLambda
@@ -85,7 +81,7 @@ known-first-party = ["template"]
 
 [tool.coverage.run]
 branch = true
-omit = ['tests/*', 'src/template/asgi.py', 'src/**/__init__.py']
+omit = ['tests/*', 'src/template/asgi.py', 'src/template/main.py', 'src/**/__init__.py']
 
 [tool.coverage.report]
 show_missing = true
