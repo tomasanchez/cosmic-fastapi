@@ -1,7 +1,7 @@
 # Architecture Decision Records
 
-This directory records the architectural defaults for projects created from
-Cosmic FastAPI. The template modernizes the intent of
+This directory records the architectural defaults for this project. The standard
+modernizes the intent of
 [Architecture Patterns with Python](https://www.cosmicpython.com/book/preface.html)
 instead of copying its implementation line for line.
 
@@ -33,7 +33,6 @@ treated as migration work, not as a precedent to repeat.
 | [0012](0012-camel-case-json-message-contracts.md) | Camel-Case JSON Message Contracts | Accepted |
 | [0013](0013-aggregates-define-consistency-boundaries.md) | Aggregates Define Consistency Boundaries | Accepted |
 | [0014](0014-cqrs-read-models-are-purpose-built.md) | CQRS Read Models Are Purpose Built | Accepted |
-| [0015](0015-copier-template-engine.md) | Copier as the Template Engine | Accepted |
 | [0016](0016-aggregate-persistence-write-back.md) | Aggregate Persistence Write-Back on Commit | Accepted |
 | [0017](0017-async-persistence-by-default.md) | Async Persistence and Application Code by Default | Accepted |
 | [0018](0018-postgresql-default-with-pgvector.md) | PostgreSQL by Default with a pgvector Image; SQLite Optional | Accepted |

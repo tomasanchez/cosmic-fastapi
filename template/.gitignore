@@ -62,7 +62,7 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
-# SQLite databases (default DATABASE_URL writes ./cosmic-fastapi.db)
+# Local SQLite database files
 *.db
 
 # Flask stuff:
