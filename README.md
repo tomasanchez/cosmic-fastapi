@@ -70,15 +70,33 @@ extensions such as optimistic locking, broker adapters, and the transactional ou
 
 Variables prefixed with `FASTAPI_` are used to configure the API UI.
 
-| Name                        | Description         | Default Value    |
-|-----------------------------|---------------------|------------------|
-| FASTAPI_DEBUG               | Debug Mode          | False            |
-| FASTAPI_PROJECT_NAME        | Swagger Title       | API GATEWAY      |
-| FASTAPI_PROJECT_DESCRIPTION | Swagger Description | ...              |
-| FASTAPI_PROJECT_LICENSE     | License info        | ...              |
-| FASTAPI_PROJECT_CONTACT     | Contact details     | ...              |
-| FASTAPI_VERSION             | Application Version | template.version |
-| FASTAPI_DOCS_URL            | Swagger Endpoint    | /docs            |
+| Name                         | Description                                 | Default Value                                    |
+|------------------------------|---------------------------------------------|--------------------------------------------------|
+| FASTAPI_DEBUG                | Debug Mode                                  | False                                            |
+| FASTAPI_PROJECT_NAME         | Swagger Title                               | Cosmic FastAPI                                   |
+| FASTAPI_PROJECT_DESCRIPTION  | Swagger Description                         | This is a FastAPI template demo.                 |
+| FASTAPI_PROJECT_LICENSE      | License info (JSON object, see below)       | `{"name": "MIT", "url": "..."}`                  |
+| FASTAPI_PROJECT_CONTACT      | Contact details (JSON object, see below)    | `{"name": "Tomas Sanchez", "url": "...", ...}`   |
+| FASTAPI_VERSION              | Application Version                         | from package metadata (`pyproject.toml`)         |
+| FASTAPI_DOCS_URL             | Swagger Endpoint                            | /docs                                            |
+| FASTAPI_BACKEND_CORS_ORIGINS | Allowed CORS origins (JSON list)            | `["http://localhost:3000", "http://localhost:8000"]` |
+
+`FASTAPI_PROJECT_LICENSE` and `FASTAPI_PROJECT_CONTACT` parse into `LicenseInfo` and `ContactInfo` models, so they must
+be provided as JSON objects:
+
+```bash
+FASTAPI_PROJECT_LICENSE='{"name": "MIT", "url": "https://mit-license.org/"}'
+FASTAPI_PROJECT_CONTACT='{"name": "Tomas Sanchez", "url": "https://tomsanchez.com.ar", "email": "info@tomsanchez.com.ar"}'
+```
+
+`FASTAPI_BACKEND_CORS_ORIGINS` is a JSON list of allowed origins. The CORS middleware disables credentials whenever the
+list contains the `"*"` wildcard, since reflecting any origin together with credentials is an unsafe posture:
+
+```bash
+FASTAPI_BACKEND_CORS_ORIGINS='["https://app.example.com", "https://admin.example.com"]'
+```
+
+`FASTAPI_VERSION` defaults to the installed package version (single source of truth in `pyproject.toml`).
 
 Variables prefixed with `UVICORN_` are used to configure the server.
 
@@ -311,7 +329,7 @@ pip install uv
 1. Clone the repository
 
     ```bash
-    git clone "git@github.com/tomasanchez/cosmic-fastapi.git"
+    git clone "git@github.com:tomasanchez/cosmic-fastapi.git"
     ```
 2. Install dependencies
 

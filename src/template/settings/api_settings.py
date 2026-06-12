@@ -49,6 +49,7 @@ class ApplicationSettings(BaseSettings):
         * FASTAPI_PROJECT_CONTACT
         * FASTAPI_VERSION
         * FASTAPI_DOCS_URL
+        * FASTAPI_BACKEND_CORS_ORIGINS
 
     Attributes:
         DEBUG (bool): FastAPI logging level. You should disable this for
@@ -59,20 +60,23 @@ class ApplicationSettings(BaseSettings):
         PROJECT_CONTACT (ContactInfo): FastAPI project contact details.
         VERSION (str): Application version.
         DOCS_URL (str): Path where swagger ui will be served at.
+        BACKEND_CORS_ORIGINS (list[str]): Origins allowed by the CORS
+            middleware. Defaults to a safe localhost allow-list.
 
     Resources:
         1. https://docs.pydantic.dev/latest/usage/pydantic_settings/
     """
 
-    DEBUG: bool = True
-    PROJECT_NAME: str = "Cosmic FastAPI Template"
+    DEBUG: bool = False
+    PROJECT_NAME: str = "Cosmic FastAPI"
     PROJECT_DESCRIPTION: str = "This is a FastAPI template demo."
     PROJECT_LICENSE: LicenseInfo | None = LicenseInfo(name="MIT", url="https://mit-license.org/")
     PROJECT_CONTACT: ContactInfo | None = ContactInfo(
-        name="Tom Sanchez", url="https://tomsanchez.com.ar", email="info@tomsanchez.com.ar"
+        name="Tomas Sanchez", url="https://tomsanchez.com.ar", email="info@tomsanchez.com.ar"
     )
     VERSION: str = __version__
     DOCS_URL: str = "/docs"
+    BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:8000"]
 
     # All your additional application configuration should go either here or in
     # separate file in this submodule.
