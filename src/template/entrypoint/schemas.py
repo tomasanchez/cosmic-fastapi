@@ -1,6 +1,6 @@
 """Pydantic schemas used at application boundaries."""
 
-from typing import Generic, Literal, TypeVar
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
@@ -18,10 +18,7 @@ class CamelCaseModel(BaseModel):
     )
 
 
-S = TypeVar("S", bound=CamelCaseModel)
-
-
-class ResponseModel(CamelCaseModel, Generic[S]):
+class ResponseModel[S: CamelCaseModel](CamelCaseModel):
     """Wrap successful API response data."""
 
     data: S | list[S] = Field(description="The response data.")
