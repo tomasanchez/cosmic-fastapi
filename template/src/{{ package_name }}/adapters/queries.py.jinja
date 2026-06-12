@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from {{ package_name }}.adapters.models.user import UserRecord
 from {{ package_name }}.domain.models.user import UserSettings
@@ -12,18 +12,18 @@ from {{ package_name }}.service_layer.read_models import UserReadModel
 class SqlAlchemyUserReader:
     """Read user projections without rehydrating write-side aggregates."""
 
-    def __init__(self, session_factory: sessionmaker[Session]):
+    def __init__(self, session_factory: async_sessionmaker[AsyncSession]):
         """Initialize the reader.
 
         Args:
-            session_factory: Factory used to create SQLAlchemy sessions.
+            session_factory: Factory used to create async SQLAlchemy sessions.
         """
         self.session_factory = session_factory
 
-    def get(self, user_id: UUID) -> UserReadModel | None:
+    async def get(self, user_id: UUID) -> UserReadModel | None:
         """Return a user projection by identity."""
-        with self.session_factory() as session:
-            record = session.get(UserRecord, str(user_id))
+        async with self.session_factory() as session:
+            record = await session.get(UserRecord, str(user_id))
             if record is None:
                 return None
             return UserReadModel(

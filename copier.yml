@@ -31,6 +31,7 @@ _exclude:
   - "{% if not include_user_example %}**/unit/domain/models/test_user.py{% endif %}"
   - "{% if not include_user_example %}**/service_layer/test_handlers.py{% endif %}"
   - "{% if not include_user_example %}**/integration/test_persistence.py{% endif %}"
+  - "{% if not include_user_example %}**/unit/adapters/test_persistence.py{% endif %}"
   - "{% if not include_user_example %}**/e2e/entrypoint/test_users.py{% endif %}"
 
 _message_after_copy: |

@@ -51,6 +51,9 @@ count toward the coverage percentage, so keep such Postgres-only branches thin.
   `tests/integration`; never rely on them for coverage.
 - Keep the offline gate at 100% via `make cover`.
 - Verify dialect- or migration-specific behavior in the integration stage.
+- Keep `concurrency = ["thread", "greenlet"]` in `[tool.coverage.run]`. SQLAlchemy's
+  async support resumes coroutines across a greenlet boundary, so without it
+  coverage misclassifies branches that continue after an awaited database call.
 
 ## References
 

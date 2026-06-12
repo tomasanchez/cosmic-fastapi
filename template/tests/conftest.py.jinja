@@ -2,29 +2,45 @@
 Pytest Fixtures.
 """
 
-from collections.abc import Iterator
+from collections.abc import AsyncIterator
 
+import httpx
 import pytest
-from starlette.testclient import TestClient
 
 from {{ package_name }}.asgi import get_application
-from {{ package_name }}.bootstrap import bootstrap
+from {{ package_name }}.bootstrap import ApplicationContainer, bootstrap
 from {{ package_name }}.settings.database_settings import DatabaseSettings
 
 
-@pytest.fixture(name="test_client")
-def fixture_test_client() -> Iterator[TestClient]:
-    """
-    Create a test client backed by an isolated in-memory application.
+@pytest.fixture(name="container")
+async def fixture_container() -> AsyncIterator[ApplicationContainer]:
+    """Build an isolated in-memory async container with a created schema.
 
-    Builds the production app from an injected container that uses an in-memory
-    SQLite database, so collection never touches a real ``DATABASE_URL`` or
-    writes a file to the repository. The client runs inside a ``with`` block so
-    the FastAPI lifespan executes and disposes resources on teardown.
+    The offline test tier always runs on in-memory async SQLite regardless of
+    the project's chosen runtime database, so collection never touches a real
+    ``DATABASE_URL`` or writes a file to the repository.
 
     Yields:
-        TestClient: A test client for the app.
+        ApplicationContainer: A started container; its engine is disposed on
+        teardown.
     """
-    container = bootstrap(DatabaseSettings(URL="sqlite+pysqlite://", AUTO_CREATE_SCHEMA=True))
-    with TestClient(get_application(container)) as client:
+    container = bootstrap(DatabaseSettings(URL="sqlite+aiosqlite://", AUTO_CREATE_SCHEMA=True))
+    await container.startup()
+    yield container
+    await container.shutdown()
+
+
+@pytest.fixture(name="test_client")
+async def fixture_test_client(container: ApplicationContainer) -> AsyncIterator[httpx.AsyncClient]:
+    """Create an async test client backed by the in-memory container.
+
+    ``ASGITransport`` does not run the FastAPI lifespan, so the ``container``
+    fixture starts and disposes the application resources instead.
+
+    Yields:
+        httpx.AsyncClient: An async client for the app.
+    """
+    app = get_application(container)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         yield client

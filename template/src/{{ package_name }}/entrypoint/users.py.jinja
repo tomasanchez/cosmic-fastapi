@@ -64,23 +64,23 @@ class UserResponse(CamelCaseModel):
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
-def register_user(payload: RegisterUserRequest, container: Container) -> ResponseModel[UserResponse]:
+async def register_user(payload: RegisterUserRequest, container: Container) -> ResponseModel[UserResponse]:
     """Register a user."""
     try:
-        user_id = container.bus.handle(payload.to_command())
+        user_id = await container.bus.handle(payload.to_command())
     except EmailAlreadyRegistered as error:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered") from error
 
-    user = get_user(user_id, container.user_reader)
+    user = await get_user(user_id, container.user_reader)
     if user is None:  # pragma: no cover - defensive adapter guard
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Registered user not found")
     return ResponseModel(data=UserResponse.from_read_model(user))
 
 
 @router.get("/{user_id}")
-def query_user(user_id: UUID, container: Container) -> ResponseModel[UserResponse]:
+async def query_user(user_id: UUID, container: Container) -> ResponseModel[UserResponse]:
     """Return a registered user."""
-    user = get_user(user_id, container.user_reader)
+    user = await get_user(user_id, container.user_reader)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return ResponseModel(data=UserResponse.from_read_model(user))

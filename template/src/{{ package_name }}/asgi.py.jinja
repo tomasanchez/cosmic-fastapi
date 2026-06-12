@@ -21,7 +21,7 @@ async def on_startup(app: FastAPI):
         1. https://fastapi.tiangolo.com/advanced/events/#startup-event
     """
     log.debug("Execute FastAPI startup event handler.")
-    app.state.container.startup()
+    await app.state.container.startup()
 
 
 async def on_shutdown(app: FastAPI):
@@ -32,7 +32,7 @@ async def on_shutdown(app: FastAPI):
         1. https://fastapi.tiangolo.com/advanced/events/#shutdown-event
     """
     log.debug("Execute FastAPI shutdown event handler.")
-    app.state.container.shutdown()
+    await app.state.container.shutdown()
 
 
 @asynccontextmanager

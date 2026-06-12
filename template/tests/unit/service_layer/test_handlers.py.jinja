@@ -31,21 +31,21 @@ class FakeUserRepository:
         self.users.append(user)
         self.seen[user.id] = user
 
-    def get(self, user_id: UUID) -> User | None:
+    async def get(self, user_id: UUID) -> User | None:
         """Return a user by identity."""
         user = next((user for user in self.users if user.id == user_id), None)
         if user:
             self.seen[user.id] = user
         return user
 
-    def get_by_email(self, email: str) -> User | None:
+    async def get_by_email(self, email: str) -> User | None:
         """Return a user by normalized email."""
         user = next((user for user in self.users if user.email == email.strip().lower()), None)
         if user:
             self.seen[user.id] = user
         return user
 
-    def persist_changes(self) -> None:
+    async def persist_changes(self) -> None:
         """Write tracked aggregates back (no-op for the in-memory fake)."""
 
 
@@ -59,13 +59,13 @@ class FakeUnitOfWork(AbstractUnitOfWork):
         self.committed = False
         self.rolled_back = False
 
-    def commit(self) -> None:
+    async def commit(self) -> None:
         """Record a commit."""
         if self.conflict_on_commit:
             raise IntegrityConflict
         self.committed = True
 
-    def rollback(self) -> None:
+    async def rollback(self) -> None:
         """Record a rollback."""
         self.rolled_back = True
 
@@ -73,7 +73,7 @@ class FakeUnitOfWork(AbstractUnitOfWork):
 class TestRegisterUser:
     """Test cases for registration orchestration."""
 
-    def test_registers_user_and_commits(self):
+    async def test_registers_user_and_commits(self):
         """
         GIVEN a registration command and an empty repository
         WHEN the registration handler executes
@@ -84,14 +84,14 @@ class TestRegisterUser:
         uow = FakeUnitOfWork()
 
         # WHEN
-        user_id = register_user(command, uow)
+        user_id = await register_user(command, uow)
 
         # THEN
         assert user_id == command.user_id
         assert uow.committed
-        assert uow.users.get(command.user_id) is not None
+        assert await uow.users.get(command.user_id) is not None
 
-    def test_rejects_an_existing_email(self):
+    async def test_rejects_an_existing_email(self):
         """
         GIVEN an existing user
         WHEN another registration uses the same normalized email
@@ -103,9 +103,9 @@ class TestRegisterUser:
 
         # WHEN / THEN
         with pytest.raises(EmailAlreadyRegistered):
-            register_user(RegisterUser(name="Other Ada", email=" ADA@example.com "), uow)
+            await register_user(RegisterUser(name="Other Ada", email=" ADA@example.com "), uow)
 
-    def test_translates_a_concurrent_persistence_conflict(self):
+    async def test_translates_a_concurrent_persistence_conflict(self):
         """
         GIVEN a registration race that violates a persistence constraint
         WHEN the unit of work commits the new user
@@ -116,14 +116,14 @@ class TestRegisterUser:
 
         # WHEN / THEN
         with pytest.raises(EmailAlreadyRegistered):
-            register_user(RegisterUser(name="Ada Lovelace", email="ada@example.com"), uow)
+            await register_user(RegisterUser(name="Ada Lovelace", email="ada@example.com"), uow)
         assert uow.rolled_back
 
 
 class TestDeactivateUser:
     """Test cases for deactivation orchestration."""
 
-    def test_deactivates_a_user_and_commits(self):
+    async def test_deactivates_a_user_and_commits(self):
         """
         GIVEN an active user
         WHEN the deactivation handler executes
@@ -135,7 +135,7 @@ class TestDeactivateUser:
         uow = FakeUnitOfWork([user])
 
         # WHEN
-        user_id = deactivate_user(DeactivateUser(user_id=user.id), uow)
+        user_id = await deactivate_user(DeactivateUser(user_id=user.id), uow)
 
         # THEN
         assert user_id == user.id
@@ -143,7 +143,7 @@ class TestDeactivateUser:
         assert user.events == [UserDeactivated(user_id=user.id)]
         assert uow.committed
 
-    def test_rejects_an_unknown_user(self):
+    async def test_rejects_an_unknown_user(self):
         """
         GIVEN an empty repository
         WHEN the deactivation handler targets an unknown identity
@@ -154,9 +154,9 @@ class TestDeactivateUser:
 
         # WHEN / THEN
         with pytest.raises(UserNotFound):
-            deactivate_user(DeactivateUser(user_id=uuid4()), uow)
+            await deactivate_user(DeactivateUser(user_id=uuid4()), uow)
 
-    def test_deactivation_is_idempotent(self):
+    async def test_deactivation_is_idempotent(self):
         """
         GIVEN an already-inactive user
         WHEN the deactivation handler runs again
@@ -169,7 +169,7 @@ class TestDeactivateUser:
         uow = FakeUnitOfWork([user])
 
         # WHEN
-        deactivate_user(DeactivateUser(user_id=user.id), uow)
+        await deactivate_user(DeactivateUser(user_id=user.id), uow)
 
         # THEN
         assert user.is_active is False
@@ -179,7 +179,7 @@ class TestDeactivateUser:
 class TestEventPublishers:
     """Test cases for the external event publisher handlers."""
 
-    def test_publishes_user_registered(self):
+    async def test_publishes_user_registered(self):
         """
         GIVEN a user-registered event and a capturing publisher
         WHEN the publish handler runs
@@ -189,13 +189,16 @@ class TestEventPublishers:
         event = UserRegistered(user_id=uuid4(), email="ada@example.com")
         published: list[UserRegistered] = []
 
+        async def publish(captured: UserRegistered) -> None:
+            published.append(captured)
+
         # WHEN
-        publish_user_registered(event, published.append)
+        await publish_user_registered(event, publish)
 
         # THEN
         assert published == [event]
 
-    def test_publishes_user_deactivated(self):
+    async def test_publishes_user_deactivated(self):
         """
         GIVEN a user-deactivated event and a capturing publisher
         WHEN the publish handler runs
@@ -205,8 +208,11 @@ class TestEventPublishers:
         event = UserDeactivated(user_id=uuid4())
         published: list[UserDeactivated] = []
 
+        async def publish(captured: UserDeactivated) -> None:
+            published.append(captured)
+
         # WHEN
-        publish_user_deactivated(event, published.append)
+        await publish_user_deactivated(event, publish)
 
         # THEN
         assert published == [event]

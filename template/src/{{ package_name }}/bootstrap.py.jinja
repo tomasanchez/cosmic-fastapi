@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+{% if include_user_example -%}
+from collections.abc import Awaitable, Callable
+{%- else -%}
 from collections.abc import Callable
+{%- endif %}
 from dataclasses import dataclass
 from functools import partial
 
-from sqlalchemy import Engine, create_engine
 from sqlalchemy.engine import make_url
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
 from {{ package_name }}.adapters.models.base import Base
@@ -30,11 +33,11 @@ from {{ package_name }}.settings.database_settings import DatabaseSettings
 {%- if include_user_example %}
 
 
-def _ignore_user_registered(event: UserRegistered) -> None:
+async def _ignore_user_registered(event: UserRegistered) -> None:
     """Provide a default no-op external event publisher."""
 
 
-def _ignore_user_deactivated(event: UserDeactivated) -> None:
+async def _ignore_user_deactivated(event: UserDeactivated) -> None:
     """Provide a default no-op external event publisher."""
 {%- endif %}
 
@@ -43,8 +46,8 @@ def _ignore_user_deactivated(event: UserDeactivated) -> None:
 class ApplicationContainer:
     """Hold process-level application dependencies."""
 
-    engine: Engine
-    session_factory: sessionmaker[Session]
+    engine: AsyncEngine
+    session_factory: async_sessionmaker[AsyncSession]
     uow_factory: Callable[[], AbstractUnitOfWork]
     bus: MessageBus
     auto_create_schema: bool
@@ -52,20 +55,21 @@ class ApplicationContainer:
     user_reader: UserReader
 {%- endif %}
 
-    def startup(self) -> None:
+    async def startup(self) -> None:
         """Initialize resources required by the running application."""
         if self.auto_create_schema:
-            Base.metadata.create_all(self.engine)
+            async with self.engine.begin() as connection:
+                await connection.run_sync(Base.metadata.create_all)
 
-    def shutdown(self) -> None:
+    async def shutdown(self) -> None:
         """Release process-level resources."""
-        self.engine.dispose()
+        await self.engine.dispose()
 
 
 def bootstrap(
     database_settings: DatabaseSettings | None = None,
 {%- if include_user_example %}
-    publish: Callable[[UserRegistered], None] = _ignore_user_registered,
+    publish: Callable[[UserRegistered], Awaitable[None]] = _ignore_user_registered,
 {%- endif %}
 ) -> ApplicationContainer:
     """Build application dependencies.
@@ -87,8 +91,8 @@ def bootstrap(
         # single static-pooled connection so the schema and data created at
         # startup remain visible to every unit of work.
         engine_options = {"connect_args": {"check_same_thread": False}, "poolclass": StaticPool}
-    engine = create_engine(settings.URL, **engine_options)
-    session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+    engine = create_async_engine(settings.URL, **engine_options)
+    session_factory = async_sessionmaker(bind=engine, expire_on_commit=False, class_=AsyncSession)
     uow_factory = partial(SqlAlchemyUnitOfWork, session_factory)
 {%- if include_user_example %}
     user_reader = SqlAlchemyUserReader(session_factory)

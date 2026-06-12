@@ -1,0 +1,41 @@
+"""Fixtures for the real-PostgreSQL integration tier.
+
+Every test here is marked ``integration`` and requires a running PostgreSQL
+instance addressed by ``TEST_DATABASE_URL`` (an async ``asyncpg`` URL). When
+that variable is unset the whole tier is skipped, so offline runs and the
+template bake stay green without Docker.
+"""
+
+import os
+from collections.abc import AsyncIterator
+
+import pytest
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+from {{ package_name }}.adapters.models.base import Base
+
+
+@pytest.fixture(name="integration_database_url")
+def fixture_integration_database_url() -> str:
+    """Return the configured integration database URL or skip the tier."""
+    url = os.environ.get("TEST_DATABASE_URL")
+    if not url:
+        pytest.skip("TEST_DATABASE_URL is not set; skipping the PostgreSQL integration tier")
+    return url
+
+
+@pytest.fixture(name="session_factory")
+async def fixture_session_factory(integration_database_url: str) -> AsyncIterator[async_sessionmaker[AsyncSession]]:
+    """Create a session factory against the real PostgreSQL database.
+
+    The schema is created and dropped around each test so runs are isolated.
+    """
+    engine = create_async_engine(integration_database_url)
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+    try:
+        yield async_sessionmaker(bind=engine, expire_on_commit=False, class_=AsyncSession)
+    finally:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.drop_all)
+        await engine.dispose()

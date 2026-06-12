@@ -2,19 +2,21 @@
 Test Cases for Monitor Entrypoint.
 """
 
+from unittest.mock import patch
+
+import httpx
 import pytest
 from fastapi import status
 from sqlalchemy.exc import SQLAlchemyError
-from starlette.testclient import TestClient
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from {{ package_name }}.asgi import get_application
-from {{ package_name }}.bootstrap import bootstrap
+from {{ package_name }}.bootstrap import ApplicationContainer
 from {{ package_name }}.entrypoint.schemas import LivenessProbed, ReadinessProbed, ResponseModel
-from {{ package_name }}.settings.database_settings import DatabaseSettings
 
 
 class TestMonitorEntryPoint:
-    def test_api_root_redirects_to_docs(self, test_client):
+    async def test_api_root_redirects_to_docs(self, test_client: httpx.AsyncClient):
         """
         GIVEN a FastAPI application configured with the Monitor Entrypoint
         WHEN the root path is requested "GET /"
@@ -22,13 +24,13 @@ class TestMonitorEntryPoint:
         """
 
         # when
-        response = test_client.get("/").history[0]
+        response = await test_client.get("/")
 
         # then
         assert response.status_code == status.HTTP_301_MOVED_PERMANENTLY
         assert response.headers["location"] == "/docs"
 
-    def test_liveness_probe(self, test_client):
+    async def test_liveness_probe(self, test_client: httpx.AsyncClient):
         """
         GIVEN a FastAPI application configured with the Monitor Entrypoint
         WHEN the liveness probe is requested "GET /liveness"
@@ -36,7 +38,7 @@ class TestMonitorEntryPoint:
         """
 
         # when
-        response = test_client.get("/liveness")
+        response = await test_client.get("/liveness")
 
         # then
         assert response.status_code == status.HTTP_200_OK
@@ -45,7 +47,7 @@ class TestMonitorEntryPoint:
         except ValueError:
             pytest.fail("Response body is not a valid LivenessProbed JSON")
 
-    def test_readiness_probe_when_database_is_reachable(self, test_client):
+    async def test_readiness_probe_when_database_is_reachable(self, test_client: httpx.AsyncClient):
         """
         GIVEN a FastAPI application whose database is reachable
         WHEN the readiness probe is requested "GET /readiness"
@@ -53,7 +55,7 @@ class TestMonitorEntryPoint:
         """
 
         # when
-        response = test_client.get("/readiness")
+        response = await test_client.get("/readiness")
 
         # then
         assert response.status_code == status.HTTP_200_OK
@@ -64,26 +66,26 @@ class TestMonitorEntryPoint:
         assert isinstance(probe.data, ReadinessProbed)
         assert probe.data.status == "Ready"
 
-    def test_readiness_probe_when_database_is_unreachable(self):
+    async def test_readiness_probe_when_database_is_unreachable(self, container: ApplicationContainer):
         """
-        GIVEN a FastAPI application whose database engine has been disposed
+        GIVEN a FastAPI application whose database engine is unreachable
         WHEN the readiness probe is requested "GET /readiness"
         THEN it should return 503, and a ReadinessProbed JSON with status "Error"
         """
 
         # given
-        container = bootstrap(DatabaseSettings(URL="sqlite+pysqlite://", AUTO_CREATE_SCHEMA=True))
         app = get_application(container)
-        with TestClient(app) as client:
-            # Force every subsequent connection attempt to fail so the probe
-            # exercises its error branch even with an in-memory StaticPool.
-            def _raise_on_connect() -> None:
-                raise SQLAlchemyError
 
-            container.engine.connect = _raise_on_connect  # type: ignore[method-assign]
+        # Force every connection attempt to fail so the probe exercises its
+        # error branch even with an in-memory StaticPool.
+        def _raise_on_connect(self: AsyncEngine) -> None:
+            raise SQLAlchemyError
 
-            # when
-            response = client.get("/readiness")
+        transport = httpx.ASGITransport(app=app)
+        with patch.object(AsyncEngine, "connect", _raise_on_connect):
+            async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+                # when
+                response = await client.get("/readiness")
 
         # then
         assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
