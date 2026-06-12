@@ -1,0 +1,37 @@
+# This workflow installs dependencies, lints, type-checks, and tests the project
+# with a single version of Python provisioned by uv from .python-version.
+# For more information see:
+# https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+
+name: Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ '**' ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install dependencies
+        run: make dev
+      - name: Lint and type-check
+        run: make lint
+      - name: ADR registry check
+        run: make adr-check
+      - name: Test with coverage gate
+        run: make cover
+      - name: Build image
+        run: docker build . --file Dockerfile --tag {{ project_slug }}:{% raw %}${{ github.sha }}{% endraw %}

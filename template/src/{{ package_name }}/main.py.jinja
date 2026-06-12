@@ -1,0 +1,25 @@
+"""
+Applicant Main File.
+"""
+
+from fastapi import FastAPI
+
+from {{ package_name }}.asgi import get_application
+
+app: FastAPI = get_application()
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    from {{ package_name }}.settings.uvicorn_settings import UvicornSettings
+
+    settings = UvicornSettings()
+
+    uvicorn.run(
+        "{{ package_name }}.main:app",
+        host=str(settings.HOST),
+        port=settings.PORT,
+        log_level=settings.LOG_LEVEL,
+        reload=settings.RELOAD,
+    )

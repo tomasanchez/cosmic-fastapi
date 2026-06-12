@@ -1,0 +1,103 @@
+[project]
+name = "{{ project_slug }}"
+version = "0.1.0"
+description = "{{ project_description }}"
+authors = [{ name = "{{ author_name }}", email = "{{ author_email }}" }]
+readme = "README.md"
+requires-python = ">={{ python_version }}"
+license = "{{ license }}"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn>=0.34.0",
+    "pydantic-settings>=2.9.0",
+    "pydantic[email]>=2.11.0",
+    "sqlalchemy>=2.0.41",
+    "alembic>=1.16.2",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.0",
+    "coverage[toml]>=7.9.0",
+    "pre-commit>=4.2.0",
+    "httpx>=0.28.0",
+    "pytest-cov>=6.2.0",
+    "ruff>=0.12,<0.13",
+    "pyrefly>=1.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    # flake8-2020
+    "YTT",
+    # flake8-bandit
+    "S",
+    # flake8-bugbear
+    "B",
+    # flake8-builtins
+    "A",
+    # flake8-comprehensions
+    "C4",
+    # flake8-debugger
+    "T10",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+    # mccabe
+    "C90",
+    # pycodestyle
+    "E", "W",
+    # pyflakes
+    "F",
+    # pygrep-hooks
+    "PGH",
+    # pyupgrade
+    "UP",
+    # ruff
+    "RUF",
+    # tryceratops
+    "TRY",
+]
+# Disable rules that are too noisy for this scaffold.
+ignore = [
+    # LineTooLong
+    "E501",
+    # DoNotAssignLambda
+    "E731",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["{{ package_name }}"]
+
+[tool.coverage.run]
+branch = true
+omit = ['tests/*', 'src/{{ package_name }}/asgi.py', 'src/{{ package_name }}/main.py', 'src/**/__init__.py']
+
+[tool.coverage.report]
+show_missing = true
+ignore_errors = true
+exclude_lines = ["pragma: no cover", "raise NotImplementedError", "if TYPE_CHECKING:", "if __name__ == .__main__.:"]
+
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+python_files = "test_*.py"
+junit_family = "xunit1"
+log_cli = false
+log_level = "DEBUG"
+
+[tool.pyrefly]
+project-includes = ["src", "scripts", "tests", "migrations"]
+search-path = [".", "src"]

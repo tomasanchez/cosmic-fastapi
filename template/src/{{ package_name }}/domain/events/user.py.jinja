@@ -1,0 +1,18 @@
+"""Events raised by the user aggregate."""
+
+from uuid import UUID
+
+from {{ package_name }}.domain.messages import Event
+
+
+class UserRegistered(Event):
+    """Record that a user completed registration."""
+
+    user_id: UUID
+    email: str
+
+
+class UserDeactivated(Event):
+    """Record that a user was deactivated."""
+
+    user_id: UUID

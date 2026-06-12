@@ -1,0 +1,28 @@
+"""Test suite for the user aggregate."""
+
+from uuid import uuid4
+
+from {{ package_name }}.domain.events.user import UserRegistered
+from {{ package_name }}.domain.models.user import User
+
+
+class TestUser:
+    """Test cases for user domain behavior."""
+
+    def test_registration_normalizes_email_and_records_event(self):
+        """
+        GIVEN user registration details with surrounding whitespace
+        WHEN a user is registered
+        THEN the aggregate normalizes its state and records a domain event
+        """
+        # GIVEN
+        user_id = uuid4()
+
+        # WHEN
+        user = User.register(user_id=user_id, name="  Ada Lovelace  ", email="  ADA@example.com ")
+
+        # THEN
+        assert user.id == user_id
+        assert user.name == "Ada Lovelace"
+        assert user.email == "ada@example.com"
+        assert user.events == [UserRegistered(user_id=user_id, email="ada@example.com")]

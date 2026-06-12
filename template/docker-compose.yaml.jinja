@@ -1,0 +1,30 @@
+services:
+  app:
+    # Build the image from the Dockerfile in the current directory.
+    build: .
+    # Name the container for easier identification.
+    container_name: {{ project_slug }}-app
+    # Map port 8000 on the host to port 8000 inside the container so the app is
+    # reachable at http://localhost:8000.
+    ports:
+      - "8000:8000"
+    # Mount the local 'src' folder into the container so code changes are
+    # reflected for Uvicorn's live-reload.
+    volumes:
+      - ./src:/app/src
+      # Persist the SQLite database file across container recreation.
+      - app-data:/app/data
+    environment:
+      # Enable Uvicorn auto-reload for local development.
+      - UVICORN_RELOAD=true
+      # Store the SQLite database on the persistent named volume.
+      - DATABASE_URL=sqlite+pysqlite:///./data/{{ project_slug }}.db
+      # Create the schema at startup so the demo works on first run.
+      # Production deployments must use Alembic migrations (make migrate)
+      # instead of auto-creating the schema.
+      - DATABASE_AUTO_CREATE_SCHEMA=true
+      # Allow the bundled frontend / local tools to call the API in development.
+      - FASTAPI_BACKEND_CORS_ORIGINS=["http://localhost:8000"]
+
+volumes:
+  app-data:
