@@ -1,6 +1,7 @@
 # ADR 0006: Async Is an Explicit End-to-End Choice
 
-- Status: Accepted
+- Status: Superseded
+- Superseded by: [0017](0017-async-persistence-by-default.md)
 - Date: 2026-05-31
 
 ## Context

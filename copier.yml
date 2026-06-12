@@ -109,10 +109,18 @@ python_version:
     - "3.12"
   default: "3.13"
 
+database:
+  type: str
+  help: Default database engine (async drivers; SQLite stays available for quick starts)
+  choices:
+    PostgreSQL (asyncpg, pgvector image): postgres
+    SQLite (aiosqlite): sqlite
+  default: postgres
+
 database_url:
   type: str
-  help: Default SQLAlchemy database URL
-  default: "sqlite+pysqlite:///./{{ project_slug }}.db"
+  help: Default async SQLAlchemy database URL
+  default: "{% if database == 'postgres' %}postgresql+asyncpg://{{ project_slug }}:{{ project_slug }}@localhost:5432/{{ project_slug }}{% else %}sqlite+aiosqlite:///./{{ project_slug }}.db{% endif %}"
 
 include_user_example:
   type: bool
