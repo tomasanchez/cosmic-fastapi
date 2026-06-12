@@ -22,15 +22,21 @@ class SqlAlchemyUserRepository:
             session: SQLAlchemy session owned by the unit of work.
         """
         self.session = session
-        self.seen: list[User] = []
+        self.seen: dict[UUID, User] = {}
 
     def add(self, user: User) -> None:
-        """Persist a new user."""
+        """Persist a new user and track it in the identity map."""
         self.session.add(self._to_record(user))
-        self.seen.append(user)
+        self.seen[user.id] = user
 
     def get(self, user_id: UUID) -> User | None:
-        """Return a user by identity."""
+        """Return a user by identity.
+
+        Returns the already-tracked instance when the row was loaded earlier
+        in this transaction so callers always mutate the same aggregate.
+        """
+        if user_id in self.seen:
+            return self.seen[user_id]
         return self._remember(self.session.get(UserRecord, str(user_id)))
 
     def get_by_email(self, email: str) -> User | None:
@@ -39,12 +45,26 @@ class SqlAlchemyUserRepository:
         return self._remember(record)
 
     def _remember(self, record: UserRecord | None) -> User | None:
-        """Translate and track a loaded aggregate."""
+        """Translate and track a loaded aggregate in the identity map."""
         if record is None:
             return None
+        if UUID(record.id) in self.seen:
+            return self.seen[UUID(record.id)]
         user = self._to_domain(record)
-        self.seen.append(user)
+        self.seen[user.id] = user
         return user
+
+    def persist_changes(self) -> None:
+        """Write the current state of tracked aggregates back to the session.
+
+        The translation pattern detaches domain aggregates from SQLAlchemy
+        change tracking, so mutations made after loading do not flush
+        automatically. Merging each tracked record upserts by primary key,
+        unifying inserts (new aggregates added in this transaction) and
+        updates (aggregates loaded then mutated).
+        """
+        for user in self.seen.values():
+            self.session.merge(self._to_record(user))
 
     @staticmethod
     def _to_record(user: User) -> UserRecord:

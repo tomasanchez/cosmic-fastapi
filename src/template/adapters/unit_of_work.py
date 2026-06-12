@@ -39,8 +39,9 @@ class SqlAlchemyUnitOfWork(AbstractUnitOfWork):
         self.session.close()
 
     def commit(self) -> None:
-        """Commit the SQLAlchemy transaction."""
+        """Persist tracked aggregate changes and commit the transaction."""
         try:
+            self.users.persist_changes()
             self.session.commit()
         except IntegrityError as error:
             raise IntegrityConflict from error

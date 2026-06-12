@@ -2,18 +2,29 @@
 Pytest Fixtures.
 """
 
+from collections.abc import Iterator
+
 import pytest
 from starlette.testclient import TestClient
 
-from template.main import app
+from template.asgi import get_application
+from template.bootstrap import bootstrap
+from template.settings.database_settings import DatabaseSettings
 
 
 @pytest.fixture(name="test_client")
-def fixture_test_client() -> TestClient:
+def fixture_test_client() -> Iterator[TestClient]:
     """
-    Create a test client for the FastAPI application.
+    Create a test client backed by an isolated in-memory application.
 
-    Returns:
+    Builds the production app from an injected container that uses an in-memory
+    SQLite database, so collection never touches a real ``DATABASE_URL`` or
+    writes a file to the repository. The client runs inside a ``with`` block so
+    the FastAPI lifespan executes and disposes resources on teardown.
+
+    Yields:
         TestClient: A test client for the app.
     """
-    return TestClient(app)
+    container = bootstrap(DatabaseSettings(URL="sqlite+pysqlite://", AUTO_CREATE_SCHEMA=True))
+    with TestClient(get_application(container)) as client:
+        yield client

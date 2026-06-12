@@ -10,10 +10,8 @@ app: FastAPI = get_application()
 
 
 if __name__ == "__main__":
-    # pylint: disable=wrong-import-position
     import uvicorn
 
-    # pylint: disable=ungrouped-imports
     from template.settings.uvicorn_settings import UvicornSettings
 
     settings = UvicornSettings()

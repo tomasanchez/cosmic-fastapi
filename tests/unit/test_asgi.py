@@ -2,7 +2,12 @@
 Test suite for ASGI Application
 """
 
+from fastapi.testclient import TestClient
+from starlette.middleware.cors import CORSMiddleware
+
 from template.asgi import get_application
+from template.bootstrap import bootstrap
+from template.settings.database_settings import DatabaseSettings
 
 
 class TestASGI:
@@ -12,8 +17,52 @@ class TestASGI:
 
     def test_get_application(self):
         """
-        GIVEN a FastAPI application
-        WHEN the application is initialized
-        THEN the application is returned
+        GIVEN an in-memory application container
+        WHEN the application is initialized and its lifespan runs
+        THEN the application is returned and resources are disposed on exit
         """
-        assert get_application() is not None
+        # GIVEN
+        container = bootstrap(DatabaseSettings(URL="sqlite+pysqlite://", AUTO_CREATE_SCHEMA=True))
+        app = get_application(container)
+
+        # WHEN / THEN
+        assert app is not None
+        with TestClient(app):
+            pass
+
+    def test_cors_defaults_disable_credentials_only_for_wildcard(self):
+        """
+        GIVEN the default CORS configuration
+        WHEN the application is initialized
+        THEN credentials are allowed because origins are an explicit allow-list
+        """
+        # GIVEN
+        container = bootstrap(DatabaseSettings(URL="sqlite+pysqlite://", AUTO_CREATE_SCHEMA=True))
+        app = get_application(container)
+
+        # WHEN
+        cors = next(m for m in app.user_middleware if m.cls is CORSMiddleware)
+
+        # THEN
+        allow_origins = cors.kwargs["allow_origins"]
+        assert isinstance(allow_origins, list)
+        assert "*" not in allow_origins
+        assert cors.kwargs["allow_credentials"] is True
+
+    def test_cors_wildcard_origin_disables_credentials(self, monkeypatch):
+        """
+        GIVEN a wildcard CORS origin
+        WHEN the application is initialized
+        THEN credentials are disabled to avoid the unsafe wildcard + credentials combo
+        """
+        # GIVEN
+        monkeypatch.setenv("FASTAPI_BACKEND_CORS_ORIGINS", '["*"]')
+        container = bootstrap(DatabaseSettings(URL="sqlite+pysqlite://", AUTO_CREATE_SCHEMA=True))
+        app = get_application(container)
+
+        # WHEN
+        cors = next(m for m in app.user_middleware if m.cls is CORSMiddleware)
+
+        # THEN
+        assert cors.kwargs["allow_origins"] == ["*"]
+        assert cors.kwargs["allow_credentials"] is False

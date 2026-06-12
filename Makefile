@@ -6,28 +6,24 @@
 .PHONY: clean
 clean: ## Removes all build and test artifacts
 	rm -f .coverage
-	rm -rf .mypy_cache
+	rm -f *.db
 	rm -rf .pytest_cache
+	rm -rf .ruff_cache
 	rm -rf dist
 	rm -rf reports
-	rm -f requirements.txt
-	rm -rf $(SSAP_DIR)
+	find . -type d -name __pycache__ -exec rm -rf {} +
 
 .PHONY: dist-clean
 dist-clean: clean ## Removes all build and test artifacts and virtual environment
 	rm -rf .venv
 
 .PHONY: install
-install: ## Install dependencies
-	uv sync
+install: ## Install runtime dependencies
+	uv sync --no-dev
 
 .PHONY: dev
-dev: ## Install dev dependencies
+dev: ## Install runtime and dev dependencies
 	uv sync --dev
-
-.PHONY: build
-build: ## Creates a virtual environment
-	uv venv
 
 .PHONY: test
 test: ## Executes tests cases

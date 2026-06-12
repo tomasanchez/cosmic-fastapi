@@ -3,10 +3,17 @@
 Responsible for probing the system liveness and readiness.
 """
 
-from fastapi import APIRouter, status
-from starlette.responses import RedirectResponse
+import logging
 
+from fastapi import APIRouter, status
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+from starlette.responses import JSONResponse, RedirectResponse
+
+from template.entrypoint.dependencies import Container
 from template.entrypoint.schemas import LivenessProbed, ReadinessProbed, ResponseModel
+
+log = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -32,14 +39,31 @@ async def query_liveness_probe() -> ResponseModel[LivenessProbed]:
     tags=["Monitor"],
     name="Readiness",
     status_code=status.HTTP_200_OK,
+    response_model=ResponseModel[ReadinessProbed],
 )
-async def query_readiness_probe() -> ResponseModel[ReadinessProbed]:
+def query_readiness_probe(container: Container) -> ResponseModel[ReadinessProbed] | JSONResponse:
     """
     Probe the system readiness.
 
-    When working with Kubernetes, Checks if the pod is ready to handle incoming traffic and requests. If the
-     readiness probe fails, Kubernetes temporarily stops sending traffic to the pod.
+    When working with Kubernetes, checks if the pod is ready to handle incoming traffic and requests. The probe
+    verifies that the database is reachable by running a lightweight ``SELECT 1`` against the configured engine.
+    If the readiness probe fails, Kubernetes temporarily stops sending traffic to the pod.
+
+    Returns:
+        A ``Ready`` response with HTTP 200 when the database responds, otherwise an ``Error`` response with
+        HTTP 503 so orchestrators stop routing traffic to this pod.
     """
+    try:
+        with container.engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+    except SQLAlchemyError:
+        log.warning("Readiness probe failed: database is unreachable.", exc_info=True)
+        body = ResponseModel(data=ReadinessProbed(status="Error"))
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content=body.model_dump(mode="json", by_alias=True),
+        )
+
     return ResponseModel(data=ReadinessProbed())
 
 

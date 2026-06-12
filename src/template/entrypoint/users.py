@@ -1,13 +1,13 @@
 """FastAPI entrypoints for user use cases."""
 
-from typing import Annotated, Literal
+from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, status
 from pydantic import EmailStr, Field
 
-from template.bootstrap import ApplicationContainer
 from template.domain.commands.user import RegisterUser
+from template.entrypoint.dependencies import Container
 from template.entrypoint.schemas import CamelCaseModel, ResponseModel
 from template.service_layer.handlers import EmailAlreadyRegistered
 from template.service_layer.queries import get_user
@@ -61,14 +61,6 @@ class UserResponse(CamelCaseModel):
                 backup_email=user.settings.backup_email,
             ),
         )
-
-
-def get_container(request: Request) -> ApplicationContainer:
-    """Return application dependencies from FastAPI state."""
-    return request.app.state.container
-
-
-Container = Annotated[ApplicationContainer, Depends(get_container)]
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)

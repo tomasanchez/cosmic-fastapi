@@ -22,3 +22,16 @@ class TestBootstrap:
 
         # THEN
         assert container.auto_create_schema is False
+
+    def test_uses_a_regular_pool_for_a_file_backed_database(self):
+        """
+        GIVEN a file-backed (non in-memory) database URL
+        WHEN the container is composed
+        THEN the static-pool branch is skipped and a normal engine is built
+        """
+        # GIVEN / WHEN
+        container = bootstrap(DatabaseSettings(URL="sqlite+pysqlite:///./build/example.db", AUTO_CREATE_SCHEMA=False))
+
+        # THEN
+        assert "memory" not in str(container.engine.url)
+        container.shutdown()

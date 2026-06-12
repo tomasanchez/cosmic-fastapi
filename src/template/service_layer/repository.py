@@ -9,7 +9,7 @@ from template.domain.models.user import User
 class UserRepository(Protocol):
     """Describe persistence operations required by user handlers."""
 
-    seen: list[User]
+    seen: dict[UUID, User]
 
     def add(self, user: User) -> None:
         """Persist a new user."""
@@ -19,3 +19,6 @@ class UserRepository(Protocol):
 
     def get_by_email(self, email: str) -> User | None:
         """Return a user by normalized email address."""
+
+    def persist_changes(self) -> None:
+        """Write tracked aggregate state back to the underlying session."""

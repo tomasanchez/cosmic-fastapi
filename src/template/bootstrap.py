@@ -7,14 +7,15 @@ from dataclasses import dataclass
 from functools import partial
 
 from sqlalchemy import Engine, create_engine
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from template.adapters.models.base import Base
 from template.adapters.queries import SqlAlchemyUserReader
 from template.adapters.unit_of_work import SqlAlchemyUnitOfWork
-from template.domain.commands.user import RegisterUser
-from template.domain.events.user import UserRegistered
+from template.domain.commands.user import DeactivateUser, RegisterUser
+from template.domain.events.user import UserDeactivated, UserRegistered
 from template.service_layer import handlers
 from template.service_layer.messagebus import MessageBus
 from template.service_layer.queries import UserReader
@@ -23,6 +24,10 @@ from template.settings.database_settings import DatabaseSettings
 
 
 def _ignore_user_registered(event: UserRegistered) -> None:
+    """Provide a default no-op external event publisher."""
+
+
+def _ignore_user_deactivated(event: UserDeactivated) -> None:
     """Provide a default no-op external event publisher."""
 
 
@@ -62,7 +67,11 @@ def bootstrap(
     """
     settings = database_settings or DatabaseSettings()
     engine_options = {}
-    if settings.URL == "sqlite+pysqlite://":
+    url = make_url(settings.URL)
+    if url.get_backend_name() == "sqlite" and url.database in (None, "", ":memory:"):
+        # An in-memory SQLite database lives inside one connection. Share a
+        # single static-pooled connection so the schema and data created at
+        # startup remain visible to every unit of work.
         engine_options = {"connect_args": {"check_same_thread": False}, "poolclass": StaticPool}
     engine = create_engine(settings.URL, **engine_options)
     session_factory = sessionmaker(bind=engine, expire_on_commit=False)
@@ -70,8 +79,14 @@ def bootstrap(
     user_reader = SqlAlchemyUserReader(session_factory)
     bus = MessageBus(
         uow_factory=uow_factory,
-        command_handlers={RegisterUser: handlers.register_user},
-        event_handlers={UserRegistered: [partial(handlers.publish_user_registered, publish=publish)]},
+        command_handlers={
+            RegisterUser: handlers.register_user,
+            DeactivateUser: handlers.deactivate_user,
+        },
+        event_handlers={
+            UserRegistered: [partial(handlers.publish_user_registered, publish=publish)],
+            UserDeactivated: [partial(handlers.publish_user_deactivated, publish=_ignore_user_deactivated)],
+        },
     )
     return ApplicationContainer(
         engine=engine,

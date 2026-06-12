@@ -41,9 +41,21 @@ class TestAPISettings:
         """
         settings = ApplicationSettings()
 
-        assert settings.DEBUG is True
-        assert settings.PROJECT_NAME
+        assert settings.DEBUG is False
+        assert settings.PROJECT_NAME == "Cosmic FastAPI"
         assert settings.PROJECT_DESCRIPTION
         assert isinstance(settings.PROJECT_LICENSE, LicenseInfo)
         assert isinstance(settings.PROJECT_CONTACT, ContactInfo)
+        assert settings.PROJECT_CONTACT.name == "Tomas Sanchez"
         assert __version__ == settings.VERSION
+
+    def test_cors_origins_default_to_safe_allow_list(self):
+        """
+        GIVEN the application settings
+        WHEN no CORS override is provided
+        THEN the default origins are an explicit localhost allow-list, not a wildcard
+        """
+        settings = ApplicationSettings()
+
+        assert settings.BACKEND_CORS_ORIGINS
+        assert "*" not in settings.BACKEND_CORS_ORIGINS

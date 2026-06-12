@@ -24,6 +24,14 @@ class UnsupportedMessageType(TypeError):
         super().__init__(f"Unsupported message type: {type(message).__name__}")
 
 
+class UnhandledCommand(KeyError):
+    """Raised when no handler is registered for a dispatched command."""
+
+    def __init__(self, command: Command):
+        """Initialize the error for a command without a registered handler."""
+        super().__init__(f"No handler registered for command: {type(command).__name__}")
+
+
 class MessageBus:
     """Dispatch commands and events to configured handlers."""
 
@@ -54,8 +62,11 @@ class MessageBus:
 
     def _handle_command(self, command: Command, queue: list[Message]) -> Any:
         """Dispatch a command and collect resulting events."""
+        try:
+            handler = self.command_handlers[type(command)]
+        except KeyError as error:
+            raise UnhandledCommand(command) from error
         uow = self.uow_factory()
-        handler = self.command_handlers[type(command)]
         result = handler(command, uow)
         queue.extend(uow.collect_new_events())
         return result

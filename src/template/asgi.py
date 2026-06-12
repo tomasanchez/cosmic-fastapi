@@ -79,10 +79,16 @@ def get_application(container: ApplicationContainer | None = None) -> FastAPI:
     )
     app.state.container = container or bootstrap()
 
+    # A wildcard origin reflected together with credentials is the most
+    # permissive (and dangerous) CORS posture: browsers will not honor it, and
+    # it effectively trusts any site. Only enable credentials when origins are
+    # an explicit allow-list rather than the "*" wildcard.
+    allow_credentials = "*" not in settings.BACKEND_CORS_ORIGINS
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
+        allow_origins=settings.BACKEND_CORS_ORIGINS,
+        allow_credentials=allow_credentials,
         allow_methods=["*"],
         allow_headers=["*"],
     )

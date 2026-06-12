@@ -33,6 +33,7 @@ treated as migration work, not as a precedent to repeat.
 | [0012](0012-camel-case-json-message-contracts.md) | Camel-Case JSON Message Contracts | Accepted |
 | [0013](0013-aggregates-define-consistency-boundaries.md) | Aggregates Define Consistency Boundaries | Accepted |
 | [0014](0014-cqrs-read-models-are-purpose-built.md) | CQRS Read Models Are Purpose Built | Accepted |
+| [0016](0016-aggregate-persistence-write-back.md) | Aggregate Persistence Write-Back on Commit | Accepted |
 
 ## Agent Checklist
 

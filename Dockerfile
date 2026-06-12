@@ -1,43 +1,57 @@
-FROM python:3.11.4-slim AS builder
+FROM python:3.13-slim AS builder
 
 ARG APP_DIR=/app
 
-ARG ENV
-
-ENV ENV=${ENV} \
-    PYTHONUNBUFFERED=1 \
+ENV PYTHONUNBUFFERED=1 \
     PYTHONHASHSEED=random \
     PYTHONFAULTHANDLER=1 \
-    UV_PYTHON=python3.11 \
-    UV_COMPILE_BYTE=1 \
-    UV_LINK_MODE=copy \
-    UVICORN_PORT=8000 \
-    UVICORN_HOST=0.0.0.0 \
-    UVICORN_RELOAD=0
+    UV_PYTHON=python3.13 \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy
 
 # Install uv.
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR ${APP_DIR}
 
-# Copy dependency definition files
+# Copy dependency definition files.
 COPY pyproject.toml uv.lock .python-version README.md ${APP_DIR}/
 
-# Build the virtual environment from the lock file, excluding dev dependencies
-# This creates a self-contained .venv directory
-# Install dependencies
+# Build the virtual environment from the lock file, excluding dev dependencies.
+# This creates a self-contained .venv directory.
 RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --frozen --no-install-project --no-dev
 
-
-# Copy the project into the image
+# Copy the project into the image and sync it.
 COPY src ${APP_DIR}/src
-
-# Sync the project
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
-# Set the command to run the application using the Python from the venv
-CMD ["uv" , "run", "python", "-m", "template.main"]
+
+FROM python:3.13-slim AS runtime
+
+ARG APP_DIR=/app
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONHASHSEED=random \
+    PYTHONFAULTHANDLER=1 \
+    PATH="${APP_DIR}/.venv/bin:$PATH" \
+    UVICORN_PORT=8000 \
+    UVICORN_HOST=0.0.0.0 \
+    UVICORN_RELOAD=0
+
+# Create an unprivileged application user.
+RUN groupadd --system app && useradd --system --gid app --home-dir ${APP_DIR} app
+
+WORKDIR ${APP_DIR}
+
+# Copy the prebuilt virtual environment and the application source.
+COPY --from=builder --chown=app:app ${APP_DIR}/.venv ${APP_DIR}/.venv
+COPY --from=builder --chown=app:app ${APP_DIR}/src ${APP_DIR}/src
+
+USER app
+
+EXPOSE 8000
+
+# Run the application using the Python from the prebuilt venv.
+CMD ["python", "-m", "template.main"]
