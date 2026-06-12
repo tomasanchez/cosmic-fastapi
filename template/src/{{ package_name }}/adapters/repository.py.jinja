@@ -1,0 +1,99 @@
+"""Persistence repositories."""
+
+from __future__ import annotations
+
+from datetime import UTC
+from uuid import UUID
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from {{ package_name }}.adapters.models.user import UserRecord
+from {{ package_name }}.domain.models.user import User, UserSettings
+
+
+class SqlAlchemyUserRepository:
+    """Persist user aggregates with SQLAlchemy."""
+
+    def __init__(self, session: Session):
+        """Initialize the repository.
+
+        Args:
+            session: SQLAlchemy session owned by the unit of work.
+        """
+        self.session = session
+        self.seen: dict[UUID, User] = {}
+
+    def add(self, user: User) -> None:
+        """Persist a new user and track it in the identity map."""
+        self.session.add(self._to_record(user))
+        self.seen[user.id] = user
+
+    def get(self, user_id: UUID) -> User | None:
+        """Return a user by identity.
+
+        Returns the already-tracked instance when the row was loaded earlier
+        in this transaction so callers always mutate the same aggregate.
+        """
+        if user_id in self.seen:
+            return self.seen[user_id]
+        return self._remember(self.session.get(UserRecord, str(user_id)))
+
+    def get_by_email(self, email: str) -> User | None:
+        """Return a user by normalized email address."""
+        record = self.session.scalar(select(UserRecord).where(UserRecord.email == email.strip().lower()))
+        return self._remember(record)
+
+    def _remember(self, record: UserRecord | None) -> User | None:
+        """Translate and track a loaded aggregate in the identity map."""
+        if record is None:
+            return None
+        if UUID(record.id) in self.seen:
+            return self.seen[UUID(record.id)]
+        user = self._to_domain(record)
+        self.seen[user.id] = user
+        return user
+
+    def persist_changes(self) -> None:
+        """Write the current state of tracked aggregates back to the session.
+
+        The translation pattern detaches domain aggregates from SQLAlchemy
+        change tracking, so mutations made after loading do not flush
+        automatically. Merging each tracked record upserts by primary key,
+        unifying inserts (new aggregates added in this transaction) and
+        updates (aggregates loaded then mutated).
+        """
+        for user in self.seen.values():
+            self.session.merge(self._to_record(user))
+
+    @staticmethod
+    def _to_record(user: User) -> UserRecord:
+        """Translate a domain aggregate into a persistence record."""
+        return UserRecord(
+            id=str(user.id),
+            name=user.name,
+            email=user.email,
+            is_active=user.is_active,
+            settings={
+                "theme": user.settings.theme,
+                "language": user.settings.language,
+                "marketing_enabled": user.settings.marketing_enabled,
+                "backup_email": user.settings.backup_email,
+            },
+            created_at=user.created_at,
+        )
+
+    @staticmethod
+    def _to_domain(record: UserRecord) -> User:
+        """Translate a persistence record into a domain aggregate."""
+        created_at = record.created_at
+        if created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=UTC)
+        return User(
+            id=UUID(record.id),
+            name=record.name,
+            email=record.email,
+            is_active=record.is_active,
+            settings=UserSettings(**record.settings),
+            created_at=created_at,
+        )

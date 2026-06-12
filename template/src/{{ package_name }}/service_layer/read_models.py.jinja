@@ -1,0 +1,17 @@
+"""Read models returned by application queries."""
+
+from dataclasses import dataclass
+from uuid import UUID
+
+from {{ package_name }}.domain.models.user import UserSettings
+
+
+@dataclass(frozen=True)
+class UserReadModel:
+    """Represent user data required by query consumers."""
+
+    id: UUID
+    name: str
+    email: str
+    is_active: bool
+    settings: UserSettings

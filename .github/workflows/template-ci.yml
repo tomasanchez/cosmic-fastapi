@@ -1,0 +1,29 @@
+# Template repository CI: bake the Copier template and run the generated
+# project's full quality gate (Ruff, Pyrefly, pytest at 100% coverage).
+# The generated project ships its own workflow at template/.github/workflows/build.yml.
+
+name: Template CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ '**' ]
+
+permissions:
+  contents: read
+
+jobs:
+  bake:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install authoring dependencies
+        run: uv sync
+      - name: Bake and test the template
+        run: uv run pytest -v
