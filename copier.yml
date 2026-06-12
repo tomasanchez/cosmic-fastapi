@@ -1,0 +1,102 @@
+_subdirectory: template
+_templates_suffix: .jinja
+
+_exclude:
+  - copier.yml
+  - "~*"
+  - "*.pyc"
+  - "__pycache__"
+  - ".git"
+  - ".venv"
+  - ".ruff_cache"
+  - ".pytest_cache"
+  - ".mypy_cache"
+
+_message_after_copy: |
+  Your project "{{ project_name }}" is ready.
+
+  Next steps:
+    1. cd {{ _copier_conf.dst_path }}
+    2. uv sync
+    3. make migrate
+    4. uv run python -m {{ package_name }}.main
+
+project_name:
+  type: str
+  help: Human-readable project name (used as the Swagger title)
+  default: My Service
+
+project_slug:
+  type: str
+  help: Kebab-case slug used for the repository, container, and database names
+  default: "{{ project_name | lower | replace(' ', '-') | replace('_', '-') }}"
+  validator: >-
+    {% if ' ' in project_slug or project_slug != project_slug | lower %}
+    project_slug must be lowercase with no spaces (use hyphens)
+    {% endif %}
+
+package_name:
+  type: str
+  help: Importable Python package name (snake_case)
+  default: "{{ project_slug | replace('-', '_') }}"
+  validator: >-
+    {% if ' ' in package_name or '-' in package_name or package_name != package_name | lower %}
+    package_name must be a valid lowercase Python identifier (snake_case)
+    {% endif %}
+
+project_description:
+  type: str
+  help: One-line project description
+  default: ""
+
+author_name:
+  type: str
+  help: Author or organization name
+  default: Your Name
+
+author_email:
+  type: str
+  help: Author contact email
+  default: you@example.com
+  validator: "{% if '@' not in author_email %}author_email must be a valid email address{% endif %}"
+
+author_url:
+  type: str
+  help: Author or project URL
+  default: https://example.com
+
+github_owner:
+  type: str
+  help: GitHub owner or organization (used in clone URLs and image tags)
+  default: your-org
+
+license:
+  type: str
+  help: Project license
+  choices:
+    - MIT
+    - Apache-2.0
+    - BSD-3-Clause
+    - Proprietary
+  default: MIT
+
+python_version:
+  type: str
+  help: Minimum supported Python version
+  choices:
+    - "3.13"
+    - "3.12"
+  default: "3.13"
+
+database_url:
+  type: str
+  help: Default SQLAlchemy database URL
+  default: "sqlite+pysqlite:///./{{ project_slug }}.db"
+
+include_user_example:
+  type: bool
+  help: Include the example User domain slice (commands, events, model, adapters, routes, tests)
+  default: true
+
+_tasks:
+  - "uv lock"
