@@ -5,9 +5,9 @@
 
 ## Context
 
-Cosmic FastAPI is a reusable project template for people and coding agents. It
-is inspired by *Architecture Patterns with Python*, also known as Cosmic
-Python. The book's central goal is to keep business logic easy to understand,
+This project follows a modern Cosmic Python standard for people and coding
+agents. It is inspired by *Architecture Patterns with Python*, also known as
+Cosmic Python. The book's central goal is to keep business logic easy to understand,
 fast to test, and independent of delivery and infrastructure choices.
 
 Python application tooling has moved forward. FastAPI, Pydantic 2, SQLAlchemy

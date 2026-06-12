@@ -223,6 +223,11 @@ def test_baked_project_passes_offline_quality_gate(baked_project: Path) -> None:
     pyrefly = _run(["uv", "run", "pyrefly", "check"], baked_project)
     assert pyrefly.returncode == 0, f"pyrefly failed:\n{pyrefly.stdout}\n{pyrefly.stderr}"
 
+    # Mirror the generated project's `make adr-check`: validate the ADR registry
+    # (now without 0015) for every matrix cell.
+    adr_check = _run(["uv", "run", "python", "scripts/prune_decisions.py", "check"], baked_project)
+    assert adr_check.returncode == 0, f"adr-check failed:\n{adr_check.stdout}\n{adr_check.stderr}"
+
     # The offline gate excludes the PostgreSQL integration tier (ADR 0019).
     tests = _run(
         [

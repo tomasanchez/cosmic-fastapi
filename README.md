@@ -1,5 +1,5 @@
 <p align="center">
-<img width="320" height="320" src="template/docs/cosmic_fastapi.png" alt='cosmic fast api'>
+<img width="320" height="320" src="docs/cosmic_fastapi.png" alt='cosmic fast api'>
 </p>
 
 <p align="center">
@@ -16,7 +16,7 @@ guidelines: a domain-first architecture with Pydantic 2, SQLAlchemy 2, Alembic, 
 pytest suite at 100% coverage.
 
 This repository serves two audiences, kept physically separated (see
-[ADR 0015](template/docs/adr/0015-copier-template-engine.md)):
+[ADR 0015](docs/adr/0015-copier-template-engine.md)):
 
 - **Author-facing** (this `README`, `copier.yml`, the bake-and-test suite) lives at the repository root and is
   never rendered into a generated project.
