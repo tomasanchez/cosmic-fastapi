@@ -7,7 +7,9 @@ from collections.abc import Iterator
 from types import TracebackType
 
 from {{ package_name }}.domain.messages import Event
+{%- if include_user_example %}
 from {{ package_name }}.service_layer.repository import UserRepository
+{%- endif %}
 
 
 class IntegrityConflict(RuntimeError):
@@ -16,8 +18,10 @@ class IntegrityConflict(RuntimeError):
 
 class AbstractUnitOfWork(ABC):
     """Provide atomic persistence and event collection."""
+{%- if include_user_example %}
 
     users: UserRepository
+{%- endif %}
 
     def __enter__(self) -> AbstractUnitOfWork:
         """Enter the transaction boundary."""
@@ -42,6 +46,7 @@ class AbstractUnitOfWork(ABC):
 
     def collect_new_events(self) -> Iterator[Event]:
         """Yield pending events from aggregates seen in this transaction.
+{%- if include_user_example %}
 
         A unit of work that was never entered has no repository; in that case
         no aggregate was seen and the iterator yields nothing.
@@ -52,3 +57,11 @@ class AbstractUnitOfWork(ABC):
         for user in users.seen.values():
             while user.events:
                 yield user.events.pop(0)
+{%- else %}
+
+        Without the example aggregate slice this monitor-only baseline tracks no
+        aggregates, so the iterator yields nothing.
+        """
+        return
+        yield  # pragma: no cover - unreachable generator sentinel
+{%- endif %}

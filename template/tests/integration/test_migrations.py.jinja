@@ -14,7 +14,11 @@ class TestMigrations:
         """
         GIVEN a blank SQLite database
         WHEN Alembic upgrades the database to head
+{%- if include_user_example %}
         THEN the user schema and Alembic revision table exist
+{%- else %}
+        THEN Alembic records its revision table even with no migrations yet
+{%- endif %}
         """
         # GIVEN
         database_path = tmp_path / "migration-test.db"
@@ -28,4 +32,6 @@ class TestMigrations:
         # THEN
         tables = inspect(create_engine(database_url)).get_table_names()
         assert "alembic_version" in tables
+{%- if include_user_example %}
         assert "users" in tables
+{%- endif %}

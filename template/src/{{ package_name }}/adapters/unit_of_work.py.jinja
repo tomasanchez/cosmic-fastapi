@@ -7,7 +7,9 @@ from types import TracebackType
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
+{% if include_user_example -%}
 from {{ package_name }}.adapters.repository import SqlAlchemyUserRepository
+{% endif -%}
 from {{ package_name }}.service_layer.unit_of_work import AbstractUnitOfWork, IntegrityConflict
 
 
@@ -25,7 +27,9 @@ class SqlAlchemyUnitOfWork(AbstractUnitOfWork):
     def __enter__(self) -> SqlAlchemyUnitOfWork:
         """Open a session and repositories."""
         self.session = self.session_factory()
+{%- if include_user_example %}
         self.users = SqlAlchemyUserRepository(self.session)
+{%- endif %}
         return self
 
     def __exit__(
@@ -41,7 +45,9 @@ class SqlAlchemyUnitOfWork(AbstractUnitOfWork):
     def commit(self) -> None:
         """Persist tracked aggregate changes and commit the transaction."""
         try:
+{%- if include_user_example %}
             self.users.persist_changes()
+{%- endif %}
             self.session.commit()
         except IntegrityError as error:
             raise IntegrityConflict from error

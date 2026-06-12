@@ -1,13 +1,24 @@
 """Test suite for Pydantic application messages."""
 
 from typing import Any, cast
-from uuid import UUID
 
 import pytest
-from pydantic import ValidationError
+from pydantic import Field, ValidationError
 
-from {{ package_name }}.domain.commands.user import RegisterUser
-from {{ package_name }}.domain.events.user import UserRegistered
+from {{ package_name }}.domain.messages import Command, Event
+
+
+class _SampleCommand(Command):
+    """A sample command used to exercise shared message behavior."""
+
+    display_name: str = Field(min_length=1)
+    retry_count: int = 0
+
+
+class _SampleEvent(Event):
+    """A sample event used to exercise shared message behavior."""
+
+    display_name: str
 
 
 class TestMessages:
@@ -17,15 +28,15 @@ class TestMessages:
         """
         GIVEN a Pydantic command and event
         WHEN the messages are serialized
-        THEN adapters receive stable dictionary representations
+        THEN adapters receive stable camel-case dictionary representations
         """
         # GIVEN
-        command = RegisterUser(name="Ada Lovelace", email="ada@example.com")
-        event = UserRegistered(user_id=command.user_id, email=command.email)
+        command = _SampleCommand(display_name="Ada Lovelace", retry_count=2)
+        event = _SampleEvent(display_name="Ada Lovelace")
 
         # WHEN / THEN
-        assert UUID(command.model_dump(mode="json")["userId"]) == command.user_id
-        assert event.model_dump(mode="json") == {"userId": str(command.user_id), "email": "ada@example.com"}
+        assert command.model_dump(mode="json") == {"displayName": "Ada Lovelace", "retryCount": 2}
+        assert event.model_dump(mode="json") == {"displayName": "Ada Lovelace"}
 
     def test_parses_camel_case_commands(self):
         """
@@ -33,44 +44,22 @@ class TestMessages:
         WHEN the command schema validates it
         THEN application code receives the typed command
         """
-        # GIVEN
-        user_id = "00000000-0000-0000-0000-000000000001"
-
         # WHEN
-        command = RegisterUser.model_validate(
-            {
-                "name": "Ada Lovelace",
-                "email": "ada@example.com",
-                "settings": {"marketingEnabled": True, "backupEmail": "backup@example.com"},
-                "userId": user_id,
-            }
-        )
+        command = _SampleCommand.model_validate({"displayName": "Ada Lovelace", "retryCount": 3})
 
         # THEN
-        assert str(command.user_id) == user_id
-        assert command.model_dump(mode="json")["settings"] == {
-            "theme": "light",
-            "language": "en",
-            "marketingEnabled": True,
-            "backupEmail": "backup@example.com",
-        }
+        assert command.display_name == "Ada Lovelace"
+        assert command.retry_count == 3
 
-    @pytest.mark.parametrize(
-        ("name", "email"),
-        [
-            ("", "ada@example.com"),
-            ("Ada Lovelace", "not-an-email"),
-        ],
-    )
-    def test_rejects_invalid_commands(self, name: str, email: str):
+    def test_rejects_invalid_commands(self):
         """
-        GIVEN invalid registration data from an external adapter
+        GIVEN invalid command data from an external adapter
         WHEN the command schema validates it
         THEN Pydantic rejects the command before dispatch
         """
         # WHEN / THEN
         with pytest.raises(ValidationError):
-            RegisterUser(name=name, email=email)
+            _SampleCommand(display_name="")
 
     def test_rejects_message_mutation(self):
         """
@@ -79,8 +68,8 @@ class TestMessages:
         THEN Pydantic rejects the mutation
         """
         # GIVEN
-        command = RegisterUser(name="Ada Lovelace", email="ada@example.com")
+        command = _SampleCommand(display_name="Ada Lovelace")
 
         # WHEN / THEN
         with pytest.raises(ValidationError):
-            cast(Any, command).email = "other@example.com"
+            cast(Any, command).display_name = "Other"

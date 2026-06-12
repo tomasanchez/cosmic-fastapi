@@ -11,6 +11,27 @@ _exclude:
   - ".ruff_cache"
   - ".pytest_cache"
   - ".mypy_cache"
+  # When the User example slice is disabled, drop its source, adapters,
+  # entrypoints, migration, and dedicated tests. Copier matches _exclude against
+  # the *rendered* destination path, so patterns use the final names (no .jinja
+  # suffix). Each pattern renders to an empty string when the flag is on, which
+  # Copier ignores.
+  - "{% if not include_user_example %}**/domain/commands/user.py{% endif %}"
+  - "{% if not include_user_example %}**/domain/events/user.py{% endif %}"
+  - "{% if not include_user_example %}**/domain/models/user.py{% endif %}"
+  - "{% if not include_user_example %}**/adapters/models/user.py{% endif %}"
+  - "{% if not include_user_example %}**/adapters/repository.py{% endif %}"
+  - "{% if not include_user_example %}**/adapters/queries.py{% endif %}"
+  - "{% if not include_user_example %}**/entrypoint/users.py{% endif %}"
+  - "{% if not include_user_example %}**/service_layer/handlers.py{% endif %}"
+  - "{% if not include_user_example %}**/service_layer/queries.py{% endif %}"
+  - "{% if not include_user_example %}**/service_layer/read_models.py{% endif %}"
+  - "{% if not include_user_example %}**/service_layer/repository.py{% endif %}"
+  - "{% if not include_user_example %}**/versions/*create_users.py{% endif %}"
+  - "{% if not include_user_example %}**/unit/domain/models/test_user.py{% endif %}"
+  - "{% if not include_user_example %}**/service_layer/test_handlers.py{% endif %}"
+  - "{% if not include_user_example %}**/integration/test_persistence.py{% endif %}"
+  - "{% if not include_user_example %}**/e2e/entrypoint/test_users.py{% endif %}"
 
 _message_after_copy: |
   Your project "{{ project_name }}" is ready.
