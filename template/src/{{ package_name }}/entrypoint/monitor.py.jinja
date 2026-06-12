@@ -41,7 +41,7 @@ async def query_liveness_probe() -> ResponseModel[LivenessProbed]:
     status_code=status.HTTP_200_OK,
     response_model=ResponseModel[ReadinessProbed],
 )
-def query_readiness_probe(container: Container) -> ResponseModel[ReadinessProbed] | JSONResponse:
+async def query_readiness_probe(container: Container) -> ResponseModel[ReadinessProbed] | JSONResponse:
     """
     Probe the system readiness.
 
@@ -54,8 +54,8 @@ def query_readiness_probe(container: Container) -> ResponseModel[ReadinessProbed
         HTTP 503 so orchestrators stop routing traffic to this pod.
     """
     try:
-        with container.engine.connect() as connection:
-            connection.execute(text("SELECT 1"))
+        async with container.engine.connect() as connection:
+            await connection.execute(text("SELECT 1"))
     except SQLAlchemyError:
         log.warning("Readiness probe failed: database is unreachable.", exc_info=True)
         body = ResponseModel(data=ReadinessProbed(status="Error"))

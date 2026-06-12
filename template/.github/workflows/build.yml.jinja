@@ -35,3 +35,42 @@ jobs:
         run: make cover
       - name: Build image
         run: docker build . --file Dockerfile --tag {{ project_slug }}:{% raw %}${{ github.sha }}{% endraw %}
+{%- if database == 'postgres' %}
+
+  integration:
+
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: {{ project_slug }}
+          POSTGRES_PASSWORD: {{ project_slug }}
+          POSTGRES_DB: {{ project_slug }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U {{ project_slug }} -d {{ project_slug }}"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      TEST_DATABASE_URL: postgresql+asyncpg://{{ project_slug }}:{{ project_slug }}@localhost:5432/{{ project_slug }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install dependencies
+        run: make dev
+      - name: Apply migrations
+        run: uv run alembic upgrade head
+        env:
+          DATABASE_URL: {% raw %}${{ env.TEST_DATABASE_URL }}{% endraw %}
+      - name: Run the PostgreSQL integration tier
+        run: make integration
+{%- endif %}

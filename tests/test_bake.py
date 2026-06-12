@@ -2,11 +2,13 @@
 
 The template repository cannot import its own package in place once the package
 path contains Jinja. Instead we *bake* the template: render it to a temporary
-directory with a sample answer set and run the generated project's full quality
-gate (Ruff, Pyrefly, pytest at 100% coverage).
+directory with a sample answer set and run the generated project's full offline
+quality gate (Ruff, Pyrefly, pytest at 100% coverage from the unit + e2e tiers).
 
-The bake runs across the feature-flag matrix so both the default
-``include_user_example`` slice and the monitor-only baseline are validated.
+The bake runs across the ``database x include_user_example`` matrix so both
+database choices and both feature-flag states are validated. The PostgreSQL
+integration tier is never run during the bake; it requires Docker and is
+covered by a dedicated CI stage (see ADR 0019).
 """
 
 from __future__ import annotations
@@ -18,6 +20,7 @@ from pathlib import Path
 
 import copier
 import pytest
+import yaml
 
 TEMPLATE_ROOT = Path(__file__).resolve().parent.parent
 
@@ -32,14 +35,38 @@ BASE_ANSWERS: dict[str, object] = {
     "github_owner": "demo-org",
     "license": "MIT",
     "python_version": "3.13",
-    "database_url": "sqlite+pysqlite:///./demo-service.db",
 }
 
-# The feature-flag matrix: each entry is a (test id, include_user_example) pair.
+# The bake matrix: every (database, include_user_example) combination. Each
+# entry is a single fixture-param value (a tuple) with a readable id.
+BAKE_MATRIX = [
+    pytest.param(("postgres", True), id="postgres-user-on"),
+    pytest.param(("postgres", False), id="postgres-user-off"),
+    pytest.param(("sqlite", True), id="sqlite-user-on"),
+    pytest.param(("sqlite", False), id="sqlite-user-off"),
+]
+
 FEATURE_FLAG_MATRIX = [
     pytest.param(True, id="user-example-on"),
     pytest.param(False, id="user-example-off"),
 ]
+
+
+def _database_url(database: str) -> str:
+    """Return the default async database URL for a database choice."""
+    if database == "postgres":
+        return "postgresql+asyncpg://demo-service:demo-service@localhost:5432/demo-service"
+    return "sqlite+aiosqlite:///./demo-service.db"
+
+
+def _answers(database: str, include_user_example: bool) -> dict[str, object]:
+    """Build the full Copier answer set for one matrix cell."""
+    return {
+        **BASE_ANSWERS,
+        "database": database,
+        "database_url": _database_url(database),
+        "include_user_example": include_user_example,
+    }
 
 
 def _run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
@@ -81,27 +108,33 @@ def template_source(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return _snapshot_working_tree(tmp_path_factory.mktemp("template-src"))
 
 
-@pytest.fixture(params=FEATURE_FLAG_MATRIX)
-def baked_project(
-    request: pytest.FixtureRequest,
-    template_source: Path,
-    tmp_path_factory: pytest.TempPathFactory,
-) -> Path:
-    """GIVEN the template, render it for each feature-flag combination.
+def _bake(template_source: Path, dst: Path, database: str, include_user_example: bool) -> Path:
+    """Render the template into ``dst`` for one matrix cell.
 
-    `unsafe=True` is required so Copier executes the `_tasks` entry (`uv lock`).
+    ``unsafe=True`` is required so Copier executes the ``_tasks`` entry
+    (``uv lock``).
     """
-    include_user_example: bool = request.param
-    dst = tmp_path_factory.mktemp("baked")
     copier.run_copy(
         str(template_source),
         str(dst),
-        data={**BASE_ANSWERS, "include_user_example": include_user_example},
+        data=_answers(database, include_user_example),
         defaults=True,
         unsafe=True,
         quiet=True,
     )
     return dst
+
+
+@pytest.fixture(params=BAKE_MATRIX)
+def baked_project(
+    request: pytest.FixtureRequest,
+    template_source: Path,
+    tmp_path_factory: pytest.TempPathFactory,
+) -> Path:
+    """GIVEN the template, render it for each matrix cell."""
+    database, include_user_example = request.param
+    dst = tmp_path_factory.mktemp("baked")
+    return _bake(template_source, dst, database, include_user_example)
 
 
 def test_package_directory_is_rendered(baked_project: Path) -> None:
@@ -130,14 +163,7 @@ def test_user_slice_presence_matches_flag(
 ) -> None:
     """WHEN baked THEN the user example slice is present only when the flag is on."""
     dst = tmp_path_factory.mktemp("baked-flag")
-    copier.run_copy(
-        str(template_source),
-        str(dst),
-        data={**BASE_ANSWERS, "include_user_example": include_user_example},
-        defaults=True,
-        unsafe=True,
-        quiet=True,
-    )
+    _bake(template_source, dst, "postgres", include_user_example)
     user_model = dst / "src" / "demo_service" / "domain" / "models" / "user.py"
     user_router = dst / "src" / "demo_service" / "entrypoint" / "users.py"
     user_migration = dst / "migrations" / "versions" / "20260531_0001_create_users.py"
@@ -146,8 +172,44 @@ def test_user_slice_presence_matches_flag(
     assert user_migration.exists() is include_user_example
 
 
-def test_baked_project_passes_quality_gate(baked_project: Path) -> None:
-    """WHEN the baked project is synced THEN ruff, pyrefly and pytest all pass at 100%."""
+@pytest.mark.parametrize(
+    "database",
+    [pytest.param("postgres", id="postgres"), pytest.param("sqlite", id="sqlite")],
+)
+def test_postgres_service_present_iff_postgres(
+    template_source: Path,
+    tmp_path_factory: pytest.TempPathFactory,
+    database: str,
+) -> None:
+    """WHEN baked THEN docker-compose has a `db` service only for PostgreSQL."""
+    dst = tmp_path_factory.mktemp("baked-compose")
+    _bake(template_source, dst, database, True)
+    compose = yaml.safe_load((dst / "docker-compose.yaml").read_text(encoding="utf-8"))
+    has_db_service = "db" in compose["services"]
+    assert has_db_service is (database == "postgres")
+    if database == "postgres":
+        assert compose["services"]["db"]["image"] == "pgvector/pgvector:pg17"
+
+
+@pytest.mark.parametrize(
+    "database",
+    [pytest.param("postgres", id="postgres"), pytest.param("sqlite", id="sqlite")],
+)
+def test_integration_ci_job_present_iff_postgres(
+    template_source: Path,
+    tmp_path_factory: pytest.TempPathFactory,
+    database: str,
+) -> None:
+    """WHEN baked THEN the CI integration job exists only for PostgreSQL."""
+    dst = tmp_path_factory.mktemp("baked-ci")
+    _bake(template_source, dst, database, True)
+    workflow = yaml.safe_load((dst / ".github" / "workflows" / "build.yml").read_text(encoding="utf-8"))
+    has_integration_job = "integration" in workflow["jobs"]
+    assert has_integration_job is (database == "postgres")
+
+
+def test_baked_project_passes_offline_quality_gate(baked_project: Path) -> None:
+    """WHEN the baked project is synced THEN ruff, pyrefly and the offline gate pass at 100%."""
     sync = _run(["uv", "sync"], baked_project)
     assert sync.returncode == 0, f"uv sync failed:\n{sync.stdout}\n{sync.stderr}"
 
@@ -161,8 +223,19 @@ def test_baked_project_passes_quality_gate(baked_project: Path) -> None:
     pyrefly = _run(["uv", "run", "pyrefly", "check"], baked_project)
     assert pyrefly.returncode == 0, f"pyrefly failed:\n{pyrefly.stdout}\n{pyrefly.stderr}"
 
+    # The offline gate excludes the PostgreSQL integration tier (ADR 0019).
     tests = _run(
-        ["uv", "run", "pytest", "--cov", "src", "--cov-report=term-missing", "--cov-fail-under=100"],
+        [
+            "uv",
+            "run",
+            "pytest",
+            "-m",
+            "not integration",
+            "--cov",
+            "src",
+            "--cov-report=term-missing",
+            "--cov-fail-under=100",
+        ],
         baked_project,
     )
     assert tests.returncode == 0, f"pytest/coverage failed:\n{tests.stdout}\n{tests.stderr}"

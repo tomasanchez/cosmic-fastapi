@@ -1,0 +1,127 @@
+"""Offline unit tests for the SQLAlchemy unit of work.
+
+These exercise the async transaction adapter against in-memory async SQLite,
+so the unit-of-work boundary stays covered without Docker. The fast offline
+tier runs on ``sqlite+aiosqlite`` regardless of the project's runtime database.
+"""
+{%- if include_user_example %}
+
+from {{ package_name }}.service_layer.unit_of_work import AbstractUnitOfWork
+{%- else %}
+
+from collections.abc import AsyncIterator
+
+import pytest
+from sqlalchemy import String, select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.pool import StaticPool
+
+from {{ package_name }}.adapters.models.base import Base
+from {{ package_name }}.adapters.unit_of_work import SqlAlchemyUnitOfWork
+from {{ package_name }}.service_layer.unit_of_work import AbstractUnitOfWork, IntegrityConflict
+
+
+class _Widget(Base):
+    """A throwaway record used to drive the unit of work in tests."""
+
+    __tablename__ = "uow_test_widgets"
+
+    id: Mapped[str] = mapped_column(String(), primary_key=True)
+
+
+@pytest.fixture(name="session_factory")
+async def fixture_session_factory() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
+    """Create an isolated in-memory async SQLAlchemy session factory."""
+    engine = create_async_engine("sqlite+aiosqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+    yield async_sessionmaker(bind=engine, expire_on_commit=False, class_=AsyncSession)
+    await engine.dispose()
+{%- endif %}
+
+
+class TestAbstractUnitOfWork:
+    """Test the default transaction-boundary behavior."""
+
+    async def test_enter_returns_self_and_exit_rolls_back(self):
+        """
+        GIVEN a unit of work using the default boundary behavior
+        WHEN it is used as an async context manager without committing
+        THEN entering returns the instance and exiting rolls work back
+        """
+
+        # GIVEN
+        class _RecordingUnitOfWork(AbstractUnitOfWork):
+            """A unit of work that records its commit and rollback calls."""
+
+            def __init__(self) -> None:
+                self.rolled_back = False
+
+            async def commit(self) -> None:
+                """Do nothing."""
+
+            async def rollback(self) -> None:
+                """Record a rollback."""
+                self.rolled_back = True
+
+        uow = _RecordingUnitOfWork()
+
+        # WHEN
+        async with uow as entered:
+            assert entered is uow
+
+        # THEN
+        assert uow.rolled_back is True
+{%- if not include_user_example %}
+
+
+class TestSqlAlchemyUnitOfWork:
+    """Test transaction semantics without a domain aggregate slice."""
+
+    async def test_commits_a_row(self, session_factory: async_sessionmaker[AsyncSession]):
+        """
+        GIVEN a SQLAlchemy unit of work
+        WHEN a row is added and explicitly committed
+        THEN a later session observes the persisted row
+        """
+        # WHEN
+        async with SqlAlchemyUnitOfWork(session_factory) as uow:
+            uow.session.add(_Widget(id="alpha"))
+            await uow.commit()
+
+        # THEN
+        async with session_factory() as session:
+            assert await session.get(_Widget, "alpha") is not None
+
+    async def test_rolls_back_uncommitted_work(self, session_factory: async_sessionmaker[AsyncSession]):
+        """
+        GIVEN a SQLAlchemy unit of work
+        WHEN a row is added without an explicit commit
+        THEN the implicit rollback on exit discards the row
+        """
+        # WHEN
+        async with SqlAlchemyUnitOfWork(session_factory) as uow:
+            uow.session.add(_Widget(id="beta"))
+
+        # THEN
+        async with session_factory() as session:
+            assert (await session.execute(select(_Widget).where(_Widget.id == "beta"))).scalar_one_or_none() is None
+
+    async def test_translates_integrity_errors(self, session_factory: async_sessionmaker[AsyncSession]):
+        """
+        GIVEN a row that already exists
+        WHEN a conflicting primary key is committed
+        THEN the adapter raises an application persistence conflict
+        """
+        # GIVEN
+        async with SqlAlchemyUnitOfWork(session_factory) as uow:
+            uow.session.add(_Widget(id="gamma"))
+            await uow.commit()
+
+        # WHEN / THEN
+        with pytest.raises(IntegrityConflict):
+            async with SqlAlchemyUnitOfWork(session_factory) as uow:
+                uow.session.add(_Widget(id="gamma"))
+                await uow.commit()
+{%- endif %}

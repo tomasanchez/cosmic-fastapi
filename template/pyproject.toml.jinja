@@ -11,19 +11,29 @@ dependencies = [
     "uvicorn>=0.34.0",
     "pydantic-settings>=2.9.0",
     "pydantic[email]>=2.11.0",
-    "sqlalchemy>=2.0.41",
+    "sqlalchemy[asyncio]>=2.0.41",
     "alembic>=1.16.2",
+{%- if database == 'postgres' %}
+    "asyncpg>=0.30.0",
+{%- endif %}
+{%- if database == 'sqlite' %}
+    "aiosqlite>=0.20.0",
+{%- endif %}
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=8.4.0",
+    "pytest-asyncio>=0.24.0",
     "coverage[toml]>=7.9.0",
     "pre-commit>=4.2.0",
     "httpx>=0.28.0",
     "pytest-cov>=6.2.0",
     "ruff>=0.12,<0.13",
     "pyrefly>=1.0.0",
+    # The offline test tier always uses in-memory async SQLite, regardless of
+    # the runtime database, so aiosqlite is a dev dependency even for Postgres.
+    "aiosqlite>=0.20.0",
 ]
 
 [build-system]
@@ -82,6 +92,10 @@ known-first-party = ["{{ package_name }}"]
 
 [tool.coverage.run]
 branch = true
+# SQLAlchemy's async engine drives I/O through greenlet, and the ASGI app runs
+# routes in a thread pool. Track both so coverage records branches that resume
+# after an awaited database call (e.g. error-handling paths).
+concurrency = ["thread", "greenlet"]
 omit = ['tests/*', 'src/{{ package_name }}/asgi.py', 'src/{{ package_name }}/main.py', 'src/**/__init__.py']
 
 [tool.coverage.report]
@@ -97,6 +111,8 @@ python_files = "test_*.py"
 junit_family = "xunit1"
 log_cli = false
 log_level = "DEBUG"
+asyncio_mode = "auto"
+markers = ["integration: requires a real PostgreSQL database (Docker)"]
 
 [tool.pyrefly]
 project-includes = ["src", "scripts", "tests", "migrations"]

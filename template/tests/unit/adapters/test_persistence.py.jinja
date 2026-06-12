@@ -1,0 +1,235 @@
+"""Offline unit tests for SQLAlchemy user repositories and readers.
+
+These run the async adapters against in-memory async SQLite so repository,
+unit-of-work, and reader behavior count toward the offline coverage gate
+without Docker. PostgreSQL-specific behavior is verified separately in the
+integration tier.
+"""
+
+from collections.abc import AsyncIterator
+from datetime import UTC, datetime
+from uuid import uuid4
+
+import pytest
+from sqlalchemy import DateTime
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import StaticPool
+
+from {{ package_name }}.adapters.models.base import Base
+from {{ package_name }}.adapters.models.user import UserRecord
+from {{ package_name }}.adapters.queries import SqlAlchemyUserReader
+from {{ package_name }}.adapters.repository import SqlAlchemyUserRepository
+from {{ package_name }}.adapters.unit_of_work import SqlAlchemyUnitOfWork
+from {{ package_name }}.domain.models.user import User
+from {{ package_name }}.service_layer.unit_of_work import IntegrityConflict
+
+
+@pytest.fixture(name="session_factory")
+async def fixture_session_factory() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
+    """Create an isolated in-memory async SQLAlchemy session factory."""
+    engine = create_async_engine("sqlite+aiosqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+    yield async_sessionmaker(bind=engine, expire_on_commit=False, class_=AsyncSession)
+    await engine.dispose()
+
+
+class TestSqlAlchemyUnitOfWork:
+    """Test persistence through the SQLAlchemy unit of work."""
+
+    async def test_commits_a_user(self, session_factory: async_sessionmaker[AsyncSession]):
+        """
+        GIVEN a SQLAlchemy unit of work
+        WHEN a user is added and explicitly committed
+        THEN a later unit of work can load the user
+        """
+        # GIVEN
+        user = User.register(name="Ada Lovelace", email="ada@example.com")
+
+        # WHEN
+        async with SqlAlchemyUnitOfWork(session_factory) as uow:
+            uow.users.add(user)
+            await uow.commit()
+
+        # THEN
+        async with SqlAlchemyUnitOfWork(session_factory) as uow:
+            loaded_user = await uow.users.get(user.id)
+        assert loaded_user == user
+
+    async def test_rolls_back_uncommitted_work(self, session_factory: async_sessionmaker[AsyncSession]):
+        """
+        GIVEN a SQLAlchemy unit of work
+        WHEN a user is added without an explicit commit
+        THEN the user is rolled back
+        """
+        # GIVEN
+        user = User.register(name="Ada Lovelace", email="ada@example.com")
+
+        # WHEN
+        async with SqlAlchemyUnitOfWork(session_factory) as uow:
+            uow.users.add(user)
+
+        # THEN
+        async with SqlAlchemyUnitOfWork(session_factory) as uow:
+            assert await uow.users.get(user.id) is None
+
+    async def test_queries_a_user_by_normalized_email(self, session_factory: async_sessionmaker[AsyncSession]):
+        """
+        GIVEN a persisted user
+        WHEN users are queried by normalized and unknown email addresses
+        THEN the repository returns the matching aggregate or None
+        """
+        # GIVEN
+        user = User.register(name="Ada Lovelace", email="ada@example.com")
+        async with SqlAlchemyUnitOfWork(session_factory) as uow:
+            uow.users.add(user)
+            await uow.commit()
+
+        # WHEN / THEN
+        async with SqlAlchemyUnitOfWork(session_factory) as uow:
+            assert await uow.users.get_by_email(" ADA@example.com ") == user
+            assert await uow.users.get_by_email("unknown@example.com") is None
+
+    def test_preserves_timezone_aware_record_timestamps(self):
+        """
+        GIVEN a persistence record with a timezone-aware timestamp
+        WHEN the record is translated to the domain
+        THEN the original timestamp is preserved
+        """
+        # GIVEN
+        created_at = datetime.now(UTC)
+        record = UserRecord(
+            id=str(uuid4()),
+            name="Ada Lovelace",
+            email="ada@example.com",
+            is_active=True,
+            settings={"theme": "light", "language": "en", "marketing_enabled": False, "backup_email": None},
+            created_at=created_at,
+        )
+
+        # WHEN
+        user = SqlAlchemyUserRepository._to_domain(record)
+
+        # THEN
+        assert user.created_at == created_at
+
+    def test_declares_timezone_aware_timestamp_storage(self):
+        """
+        GIVEN the SQLAlchemy user persistence record
+        WHEN its created-at column is inspected
+        THEN timezone-aware storage is configured
+        """
+        # WHEN
+        column_type = UserRecord.__table__.columns["created_at"].type
+
+        # THEN
+        assert isinstance(column_type, DateTime)
+        assert column_type.timezone is True
+
+    async def test_persists_mutations_to_loaded_aggregates(self, session_factory: async_sessionmaker[AsyncSession]):
+        """
+        GIVEN a persisted user loaded through a fresh unit of work
+        WHEN the loaded aggregate is mutated and committed
+        THEN a later unit of work observes the mutated state
+
+        This guards against the silent data loss that the translation pattern
+        causes: a loaded aggregate is detached from SQLAlchemy change tracking,
+        so its mutations must be written back explicitly on commit.
+        """
+        # GIVEN
+        user = User.register(name="Ada Lovelace", email="ada@example.com")
+        async with SqlAlchemyUnitOfWork(session_factory) as uow:
+            uow.users.add(user)
+            await uow.commit()
+
+        # WHEN
+        async with SqlAlchemyUnitOfWork(session_factory) as uow:
+            loaded_user = await uow.users.get(user.id)
+            assert loaded_user is not None
+            loaded_user.deactivate()
+            await uow.commit()
+
+        # THEN
+        async with SqlAlchemyUnitOfWork(session_factory) as uow:
+            reloaded_user = await uow.users.get(user.id)
+        assert reloaded_user is not None
+        assert reloaded_user.is_active is False
+
+    async def test_returns_the_same_instance_for_a_re_loaded_aggregate(
+        self, session_factory: async_sessionmaker[AsyncSession]
+    ):
+        """
+        GIVEN a persisted user
+        WHEN the same identity is loaded twice within one unit of work
+        THEN the repository returns the identical tracked instance
+        """
+        # GIVEN
+        user = User.register(name="Ada Lovelace", email="ada@example.com")
+        async with SqlAlchemyUnitOfWork(session_factory) as uow:
+            uow.users.add(user)
+            await uow.commit()
+
+        # WHEN / THEN
+        async with SqlAlchemyUnitOfWork(session_factory) as uow:
+            first = await uow.users.get(user.id)
+            by_email = await uow.users.get_by_email("ada@example.com")
+            second = await uow.users.get(user.id)
+        assert first is second
+        assert by_email is first
+
+    async def test_translates_integrity_errors(self, session_factory: async_sessionmaker[AsyncSession]):
+        """
+        GIVEN two users with the same globally unique email
+        WHEN the second transaction commits
+        THEN the SQLAlchemy adapter raises an application persistence conflict
+        """
+        # GIVEN
+        first_user = User.register(name="Ada Lovelace", email="ada@example.com")
+        second_user = User.register(name="Other Ada", email="ada@example.com")
+        async with SqlAlchemyUnitOfWork(session_factory) as uow:
+            uow.users.add(first_user)
+            await uow.commit()
+
+        # WHEN / THEN
+        with pytest.raises(IntegrityConflict):
+            async with SqlAlchemyUnitOfWork(session_factory) as uow:
+                uow.users.add(second_user)
+                await uow.commit()
+
+
+class TestSqlAlchemyUserReader:
+    """Test read-side projection queries."""
+
+    async def test_returns_a_purpose_built_read_model(self, session_factory: async_sessionmaker[AsyncSession]):
+        """
+        GIVEN a persisted user aggregate
+        WHEN the read-side adapter queries the user
+        THEN it returns a projection without write-side aggregate events
+        """
+        # GIVEN
+        user = User.register(name="Ada Lovelace", email="ada@example.com")
+        async with SqlAlchemyUnitOfWork(session_factory) as uow:
+            uow.users.add(user)
+            await uow.commit()
+        reader = SqlAlchemyUserReader(session_factory)
+
+        # WHEN
+        projection = await reader.get(user.id)
+
+        # THEN
+        assert projection is not None
+        assert projection.id == user.id
+        assert projection.email == "ada@example.com"
+        assert not hasattr(projection, "events")
+
+    async def test_returns_none_for_an_unknown_user(self, session_factory: async_sessionmaker[AsyncSession]):
+        """
+        GIVEN an empty database
+        WHEN the read-side adapter queries an unknown user
+        THEN it returns None
+        """
+        # GIVEN
+        reader = SqlAlchemyUserReader(session_factory)
+
+        # WHEN / THEN
+        assert await reader.get(uuid4()) is None

@@ -26,8 +26,12 @@ dev: ## Install runtime and dev dependencies
 	uv sync --dev
 
 .PHONY: test
-test: ## Executes tests cases
-	uv run pytest
+test: ## Executes the offline test tiers (unit + e2e)
+	uv run pytest -m "not integration"
+
+.PHONY: integration
+integration: ## Executes the PostgreSQL integration tier (requires TEST_DATABASE_URL / Docker)
+	uv run pytest -m integration
 
 .PHONY: adr-check
 adr-check: ## Validates the architecture decision registry
@@ -42,8 +46,8 @@ migrate: ## Applies relational database migrations
 	uv run alembic upgrade head
 
 .PHONY: cover
-cover: ## Executes tests cases with coverage reports
-	uv run pytest --cov src/{{ package_name }} --cov-fail-under=100 --junitxml reports/xunit.xml \
+cover: ## Executes the offline tiers (unit + e2e) with the coverage gate
+	uv run pytest -m "not integration" --cov src/{{ package_name }} --cov-fail-under=100 --junitxml reports/xunit.xml \
 	--cov-report xml:reports/coverage.xml --cov-report term-missing
 
 .PHONY: format

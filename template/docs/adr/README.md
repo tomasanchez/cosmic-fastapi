@@ -24,7 +24,7 @@ treated as migration work, not as a precedent to repeat.
 | [0003](0003-fastapi-and-pydantic-live-at-boundaries.md) | FastAPI and Pydantic Live at Boundaries | Superseded |
 | [0004](0004-sqlalchemy-2-persistence-behind-repositories.md) | SQLAlchemy 2 Persistence Stays Behind Repositories | Accepted |
 | [0005](0005-explicit-composition-and-message-dispatch.md) | Explicit Composition and Message Dispatch | Accepted |
-| [0006](0006-async-is-an-explicit-end-to-end-choice.md) | Async Is an Explicit End-to-End Choice | Accepted |
+| [0006](0006-async-is-an-explicit-end-to-end-choice.md) | Async Is an Explicit End-to-End Choice | Superseded |
 | [0007](0007-tooling-and-test-pyramid.md) | Tooling and Test Pyramid | Accepted |
 | [0008](0008-static-typing-with-pyrefly.md) | Static Typing With Pyrefly | Accepted |
 | [0009](0009-conventional-commits.md) | Conventional Commits | Accepted |
@@ -35,6 +35,9 @@ treated as migration work, not as a precedent to repeat.
 | [0014](0014-cqrs-read-models-are-purpose-built.md) | CQRS Read Models Are Purpose Built | Accepted |
 | [0015](0015-copier-template-engine.md) | Copier as the Template Engine | Accepted |
 | [0016](0016-aggregate-persistence-write-back.md) | Aggregate Persistence Write-Back on Commit | Accepted |
+| [0017](0017-async-persistence-by-default.md) | Async Persistence and Application Code by Default | Accepted |
+| [0018](0018-postgresql-default-with-pgvector.md) | PostgreSQL by Default with a pgvector Image; SQLite Optional | Accepted |
+| [0019](0019-coverage-from-unit-and-e2e-tests.md) | Coverage From Unit and E2E Tests; Integration Runs Separately | Accepted |
 
 ## Agent Checklist
 

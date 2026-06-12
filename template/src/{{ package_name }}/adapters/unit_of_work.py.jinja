@@ -5,7 +5,7 @@ from __future__ import annotations
 from types import TracebackType
 
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 {% if include_user_example -%}
 from {{ package_name }}.adapters.repository import SqlAlchemyUserRepository
@@ -16,15 +16,15 @@ from {{ package_name }}.service_layer.unit_of_work import AbstractUnitOfWork, In
 class SqlAlchemyUnitOfWork(AbstractUnitOfWork):
     """Manage a SQLAlchemy session as one atomic unit."""
 
-    def __init__(self, session_factory: sessionmaker[Session]):
+    def __init__(self, session_factory: async_sessionmaker[AsyncSession]):
         """Initialize the unit of work.
 
         Args:
-            session_factory: Factory used to create a SQLAlchemy session.
+            session_factory: Factory used to create an async SQLAlchemy session.
         """
         self.session_factory = session_factory
 
-    def __enter__(self) -> SqlAlchemyUnitOfWork:
+    async def __aenter__(self) -> SqlAlchemyUnitOfWork:
         """Open a session and repositories."""
         self.session = self.session_factory()
 {%- if include_user_example %}
@@ -32,26 +32,27 @@ class SqlAlchemyUnitOfWork(AbstractUnitOfWork):
 {%- endif %}
         return self
 
-    def __exit__(
+    async def __aexit__(
         self,
         exception_type: type[BaseException] | None,
         exception: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:
         """Roll back unfinished work and close the session."""
-        super().__exit__(exception_type, exception, traceback)
-        self.session.close()
+        await super().__aexit__(exception_type, exception, traceback)
+        await self.session.close()
 
-    def commit(self) -> None:
+    async def commit(self) -> None:
         """Persist tracked aggregate changes and commit the transaction."""
         try:
 {%- if include_user_example %}
-            self.users.persist_changes()
+            await self.users.persist_changes()
+{%- else %}
+            await self.session.commit()
 {%- endif %}
-            self.session.commit()
         except IntegrityError as error:
             raise IntegrityConflict from error
 
-    def rollback(self) -> None:
+    async def rollback(self) -> None:
         """Roll back the SQLAlchemy transaction."""
-        self.session.rollback()
+        await self.session.rollback()

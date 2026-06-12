@@ -22,7 +22,7 @@ class TestASGI:
         THEN the application is returned and resources are disposed on exit
         """
         # GIVEN
-        container = bootstrap(DatabaseSettings(URL="sqlite+pysqlite://", AUTO_CREATE_SCHEMA=True))
+        container = bootstrap(DatabaseSettings(URL="sqlite+aiosqlite://", AUTO_CREATE_SCHEMA=True))
         app = get_application(container)
 
         # WHEN / THEN
@@ -37,7 +37,7 @@ class TestASGI:
         THEN credentials are allowed because origins are an explicit allow-list
         """
         # GIVEN
-        container = bootstrap(DatabaseSettings(URL="sqlite+pysqlite://", AUTO_CREATE_SCHEMA=True))
+        container = bootstrap(DatabaseSettings(URL="sqlite+aiosqlite://", AUTO_CREATE_SCHEMA=True))
         app = get_application(container)
 
         # WHEN
@@ -57,7 +57,7 @@ class TestASGI:
         """
         # GIVEN
         monkeypatch.setenv("FASTAPI_BACKEND_CORS_ORIGINS", '["*"]')
-        container = bootstrap(DatabaseSettings(URL="sqlite+pysqlite://", AUTO_CREATE_SCHEMA=True))
+        container = bootstrap(DatabaseSettings(URL="sqlite+aiosqlite://", AUTO_CREATE_SCHEMA=True))
         app = get_application(container)
 
         # WHEN

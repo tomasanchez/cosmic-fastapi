@@ -12,19 +12,56 @@ services:
     # reflected for Uvicorn's live-reload.
     volumes:
       - ./src:/app/src
+{%- if database == 'sqlite' %}
       # Persist the SQLite database file across container recreation.
       - app-data:/app/data
+{%- endif %}
+{%- if database == 'postgres' %}
+    depends_on:
+      db:
+        condition: service_healthy
+{%- endif %}
     environment:
       # Enable Uvicorn auto-reload for local development.
       - UVICORN_RELOAD=true
+{%- if database == 'postgres' %}
+      # Connect to the bundled PostgreSQL service over the async driver.
+      - DATABASE_URL=postgresql+asyncpg://{{ project_slug }}:{{ project_slug }}@db:5432/{{ project_slug }}
+{%- else %}
       # Store the SQLite database on the persistent named volume.
-      - DATABASE_URL=sqlite+pysqlite:///./data/{{ project_slug }}.db
+      - DATABASE_URL=sqlite+aiosqlite:///./data/{{ project_slug }}.db
+{%- endif %}
       # Create the schema at startup so the demo works on first run.
       # Production deployments must use Alembic migrations (make migrate)
       # instead of auto-creating the schema.
       - DATABASE_AUTO_CREATE_SCHEMA=true
       # Allow the bundled frontend / local tools to call the API in development.
       - FASTAPI_BACKEND_CORS_ORIGINS=["http://localhost:8000"]
+{%- if database == 'postgres' %}
+
+  db:
+    # pgvector-capable PostgreSQL so projects can adopt vector search without
+    # changing infrastructure. The example domain ships no vector column yet.
+    image: pgvector/pgvector:pg17
+    container_name: {{ project_slug }}-db
+    environment:
+      - POSTGRES_USER={{ project_slug }}
+      - POSTGRES_PASSWORD={{ project_slug }}
+      - POSTGRES_DB={{ project_slug }}
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U {{ project_slug }} -d {{ project_slug }}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+{%- endif %}
 
 volumes:
+{%- if database == 'postgres' %}
+  db-data:
+{%- else %}
   app-data:
+{%- endif %}

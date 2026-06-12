@@ -31,11 +31,11 @@ class _StubUnitOfWork(AbstractUnitOfWork):
         self.committed = False
         self.rolled_back = False
 
-    def commit(self) -> None:
+    async def commit(self) -> None:
         """Record a commit."""
         self.committed = True
 
-    def rollback(self) -> None:
+    async def rollback(self) -> None:
         """Record a rollback."""
         self.rolled_back = True
 
@@ -47,7 +47,7 @@ class _StubUnitOfWork(AbstractUnitOfWork):
 class TestMessageBus:
     """Test cases for internal command and event dispatch."""
 
-    def test_dispatches_events_raised_by_command_handlers(self):
+    async def test_dispatches_events_raised_by_command_handlers(self):
         """
         GIVEN a message bus whose command handler raises a domain event
         WHEN the command is dispatched
@@ -57,23 +57,26 @@ class TestMessageBus:
         event = _SampleEvent(label="raised")
         published: list[_SampleEvent] = []
 
-        def handle_command(command: _SampleCommand, uow: AbstractUnitOfWork) -> str:
+        async def handle_command(command: _SampleCommand, uow: AbstractUnitOfWork) -> str:
             return command.label
+
+        async def publish(captured: _SampleEvent) -> None:
+            published.append(captured)
 
         bus = MessageBus(
             uow_factory=lambda: _StubUnitOfWork([event]),
             command_handlers={_SampleCommand: handle_command},
-            event_handlers={_SampleEvent: [published.append]},
+            event_handlers={_SampleEvent: [publish]},
         )
 
         # WHEN
-        result = bus.handle(_SampleCommand(label="ok"))
+        result = await bus.handle(_SampleCommand(label="ok"))
 
         # THEN
         assert result == "ok"
         assert published == [event]
 
-    def test_logs_event_handler_failures_and_continues(self):
+    async def test_logs_event_handler_failures_and_continues(self):
         """
         GIVEN an event handler that raises an exception
         WHEN a domain event is dispatched
@@ -81,10 +84,10 @@ class TestMessageBus:
         """
 
         # GIVEN
-        def handle_command(command: _SampleCommand, uow: AbstractUnitOfWork) -> str:
+        async def handle_command(command: _SampleCommand, uow: AbstractUnitOfWork) -> str:
             return command.label
 
-        def fail_to_publish(event: _SampleEvent) -> None:
+        async def fail_to_publish(event: _SampleEvent) -> None:
             raise RuntimeError(event.label)
 
         bus = MessageBus(
@@ -95,13 +98,13 @@ class TestMessageBus:
 
         # WHEN
         with patch("{{ package_name }}.service_layer.messagebus.log.exception") as log_exception:
-            result = bus.handle(_SampleCommand(label="ok"))
+            result = await bus.handle(_SampleCommand(label="ok"))
 
         # THEN
         assert result == "ok"
         log_exception.assert_called_once()
 
-    def test_rejects_messages_without_command_or_event_semantics(self):
+    async def test_rejects_messages_without_command_or_event_semantics(self):
         """
         GIVEN a base message without command or event semantics
         WHEN the message bus receives it
@@ -112,9 +115,9 @@ class TestMessageBus:
 
         # WHEN / THEN
         with pytest.raises(TypeError, match="Unsupported message type"):
-            bus.handle(Message())
+            await bus.handle(Message())
 
-    def test_rejects_commands_without_a_registered_handler(self):
+    async def test_rejects_commands_without_a_registered_handler(self):
         """
         GIVEN a message bus with no handler for a command type
         WHEN that command is dispatched
@@ -125,7 +128,7 @@ class TestMessageBus:
 
         # WHEN / THEN
         with pytest.raises(UnhandledCommand, match="_SampleCommand"):
-            bus.handle(_SampleCommand(label="ok"))
+            await bus.handle(_SampleCommand(label="ok"))
 
 
 class TestUnitOfWorkEventCollection:
@@ -142,10 +145,10 @@ class TestUnitOfWorkEventCollection:
         class _EmptyUnitOfWork(AbstractUnitOfWork):
             """A unit of work that tracks no aggregates."""
 
-            def commit(self) -> None:
+            async def commit(self) -> None:
                 """Do nothing."""
 
-            def rollback(self) -> None:
+            async def rollback(self) -> None:
                 """Do nothing."""
 
         uow = _EmptyUnitOfWork()
