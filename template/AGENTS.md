@@ -31,14 +31,17 @@ an ADR, run `make adr-check`.
 
 ## Async and Persistence
 
-- The application is **async end to end**
-  ([ADR 0017](docs/adr/0017-async-persistence-by-default.md)). Routes, handlers,
-  the message bus, repositories, query readers, and the unit of work are `async`;
-  persistence uses `create_async_engine` and `AsyncSession`. Keep **domain objects
-  synchronous** — business rules perform no I/O.
+- **Async is the default — reach for it first.** The application is async end to
+  end ([ADR 0017](docs/adr/0017-async-persistence-by-default.md)): routes,
+  handlers, the message bus, repositories, query readers, and the unit of work
+  are `async`, and persistence uses `create_async_engine` and `AsyncSession`.
+  Keep **domain objects synchronous** — business rules perform no I/O.
 - Never block the event loop inside `async def` (no synchronous DB driver, no
-  blocking call). `await` database work; offload genuinely blocking work to a
-  thread only with a documented reason.
+  blocking call). `await` database work. When a dependency is unavoidably
+  synchronous, wrap it with `asyncify()` from
+  [Asyncer](https://asyncer.tiangolo.com/) (by FastAPI's author) —
+  `await asyncify(blocking_fn)(arg)` runs it in a worker thread
+  (`uv add asyncer`) — rather than leaving the blocking call inline.
 - The default database is **PostgreSQL** via `asyncpg`; **SQLite** via `aiosqlite`
   is the optional alternative
   ([ADR 0018](docs/adr/0018-postgresql-default-with-pgvector.md)). Select the
