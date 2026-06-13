@@ -49,9 +49,15 @@ semantics. The domain layer is unaffected and remains trivially unit-testable.
 
 ## Agent Guidance
 
-- Make every adapter, service-layer, and entrypoint I/O path `async`/`await`.
-- Never call blocking I/O inside an `async def`; offload to a thread only with a
-  documented reason.
+- Reach for async first: a new adapter, handler, route, or client is `async` by
+  default. Make every adapter, service-layer, and entrypoint I/O path
+  `async`/`await`.
+- Never call blocking I/O inside an `async def`. When a dependency is
+  unavoidably synchronous, wrap the call with `asyncify()` from
+  [Asyncer](https://asyncer.tiangolo.com/) (by FastAPI's author) — e.g.
+  `await asyncify(blocking_fn)(arg)` — which runs it in a worker thread instead
+  of blocking the event loop (`uv add asyncer`). Do not paper over a blocking
+  call by leaving it inline.
 - Keep domain methods synchronous and free of I/O.
 - Use `AsyncSession` and `await` commits/queries; do not mix a sync `Session`
   into the request path.
@@ -61,5 +67,6 @@ semantics. The domain layer is unaffected and remains trivially unit-testable.
 
 - [SQLAlchemy asyncio extension](https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html)
 - [FastAPI: async and await](https://fastapi.tiangolo.com/async/)
+- [Asyncer: `asyncify`](https://asyncer.tiangolo.com/tutorial/asyncify/)
 - [pytest-asyncio](https://pytest-asyncio.readthedocs.io/)
 - [ADR 0006: Async Is an Explicit End-to-End Choice](0006-async-is-an-explicit-end-to-end-choice.md)
